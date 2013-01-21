@@ -33,7 +33,8 @@ destination: public
 plugins: plugins
 code_dir: downloads/code
 category_dir: categories
-markdown: rdiscount
+#markdown: rdiscount
+markdown: kramdown
 pygments: true # default python pygments have been replaced by pygments.rb
 
 paginate: 4         # Posts per page on the blog index
@@ -89,8 +90,8 @@ github_skip_forks: true
 #delicious_count: 3
 #
 # Disqus Comments
-#disqus_short_name:
-#disqus_show_comment_count: false
+disqus_short_name: 'blogerrstr'
+disqus_show_comment_count: true
 
 # Google Analytics
 google_analytics_tracking_id: 'UA-27077129-1'
