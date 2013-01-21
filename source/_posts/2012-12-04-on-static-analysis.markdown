@@ -200,8 +200,8 @@ What if we make it even harder, by making each number a lambda that creates a
 number?
 {% codeblock 4 x -3 lang:ruby %}
 four = ->(x,y) {x-y+4}
-neg_three = ->() {four.call(4, 5)}
-->() {four.call(200, (-10*20))*neg_three.call}
+neg_three = ->() {four.call(7, 14)}
+->() {four.call(200, (10*20))*neg_three.call}
 {% endcodeblock %}
 
 Ok, well, that is easy enough, we could just beta reduce. That would be perfect
