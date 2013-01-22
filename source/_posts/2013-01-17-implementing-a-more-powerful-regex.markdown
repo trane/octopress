@@ -77,6 +77,21 @@ var RegEx = function() {
 };
 {% endcodeblock %}
 {% codeblock regex.rb lang:ruby %}
+class RegEx
+    def isNullable
+        raise ""
+    end
+    def derive(c)
+        raise ""
+    end
+    def matches(string)
+        if string.size == 0
+            self.isNullable
+        else
+            self.derive(string[0]).matches(string[1..-1])
+        end
+    end
+end
 {% endcodeblock %}
 
 ##Emptiness
