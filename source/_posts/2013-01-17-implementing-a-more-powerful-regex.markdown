@@ -150,8 +150,9 @@ end
 
 ##Blank: Empty String Language
 If the string is accepted (meaning it matched all the way), then it accepts
-$$\epsilon$$ which is represented by the empty-string language of `Blank`. So,
-the derivative of $$\epsilon$$ is $$\epsilon$$ and is $$\emptyset$$ with respect
+$$\epsilon$$ which is represented by the empty-string language of `Blank`.
+
+The derivative of $$\epsilon$$ is $$\epsilon$$ and is $$\emptyset$$ with respect
 to *any* character.
 
 $$\delta(\epsilon) = \epsilon\\
@@ -190,7 +191,9 @@ end
 ##Primitive: Single Character Language
 A primitive is a single character language, like {'c'}. You can think of a
 string as being one or more `Primitive` languages, e.g. `'cat' = 'c' 'a' 't'`
-all concatenated together. So, the derivative of a primitive is $$\emptyset$$
+all concatenated together.
+
+So, the derivative of a primitive is $$\emptyset$$
 and the derivative of the *re* with respect to *c* is $$\epsilon$$ if *c* is the
 same as the parameter *c'* and $$\emptyset$$ if they are not equal.
 
@@ -302,7 +305,7 @@ The derivative of a repetition is $$\epsilon$$ and the derivative with of the
 *re* is the derivative of the *re* concatenated with *re\**.
 
 $$\delta(L*) = \epsilon\\
-\D_c(L*) = D_c(L)L*$$
+D_c(L*) = D_c(L)L*$$
 
 {% codeblock repetition.py lang:python %}
 class Repetition(RegEx):
