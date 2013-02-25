@@ -46,7 +46,7 @@ The algorithm is a simple two step process:
 In formal theory, a language is a set of characters, what we'd call a set of
 strings like $$\{\text{foo},\text{bar},\text{baz}\}$$. The derivative of that
 language in terms of the character *b* is
-$$\delta(b)=\{\text{foo},\text{bar},\text{baz}\}=\{\text{ar},\text{az}\}$$.
+$$D_b\{\text{foo},\text{bar},\text{baz}\}=\{\text{ar},\text{az}\}$$.
 
 ##Nullability
 A nullable language is one that no longer accepts any input, in other words does
@@ -415,7 +415,7 @@ derivatives, we get them cheaply.
 The derivative of the intersection of languages is the intersection of their
 derivatives. This is the same with respect to the *re*.
 
-$$\delta(L_1\cap L_2) = \delta(L_!)\cap\delat(L_2)\\
+$$\delta(L_1\cap L_2) = \delta(L_1)\cap\delta(L_2)\\
 D_c(L_1\cap L_2) = D_c(L1)\cap D_c(L_2)$$
 
 {% codeblock intersection.py lang:python %}
