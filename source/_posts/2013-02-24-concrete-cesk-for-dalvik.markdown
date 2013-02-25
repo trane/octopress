@@ -4,6 +4,7 @@ title: "Concrete CESK for Dalvik"
 date: 2013-02-24 16:05
 comments: true
 categories: dalvik, cesk
+tags: racket, dalivk
 ---
 
 
@@ -17,7 +18,7 @@ that takes its name from the four components of each state: Control,
 Environment, Store, and Kontinuation.
 
 In this article, I detail the CESK machine and provide a partial implementation
-for Dalvik bytecode - the language of Android.
+of an interpreter for Dalvik bytecode - the language of Android.
 
 # CESK
 
@@ -101,7 +102,88 @@ pointer from before the call and the next continuation.  $$ assign(name,
 \vec{s}, fp, \kappa)$$
 
 
-# Generalized Instruction
+# Running the CESK machine
+
+Since the CESK machine is a state-machine, we have a single partial transition
+function (from state to state) that is run until it is told to terminate (when
+we encounter the *halt* continuation) called `step`. We only need to have an
+initial state ($$\varsigma_0$$) and then iterate until we hit *halt*. So, we
+need four things:
+
+* `inject` to create the initial state, with an empty environment and store
+* `step` the transition function for each type of state transition
+* `lookup` a way to lookup frame pointers in the store
+* `run` run the CESK state-machine
+
+{% codeblock dalvik_cesk.rkt lang:racket %}
+(struct state {stmts fp store kont})
+
+; create the initial machine state ς0
+(define (inject stmt)
+  (state stmt empty-fp empty-store 'halt))
+
+; the partial state to state transition function
+(define (next state)
+  (match state
+    ...))
+
+; lookup a frame-pointer in the store
+(define (lookup store fp val)
+  (hash-ref store `(,val ,fp)))
+
+; the algorithm for running the interpreter
+(define (run state)
+  (let ([step (next state)])
+    (if (eq? 'halt (kont step))
+        step
+        (run step))))
+{% endcodeblock %}
+
+# Transitions: Evaluation and stepping
+
+Remembering from earilier in the article, there are three types of
+continutations: assignment, handler, and halt. Each of the components of a
+Dalvik program will use those generalized definitions.
+
+$$
+\begin{array}{rcl}
+\kappa \in \mathit{Kont} &::=&
+  assign(\mathit{name}, \vec{\mathit{s}}, \mathit{fp}, \kappa)
+  \\
+  & \mathrel{|} & handle(\mathit{className},\mathit{label},\kappa)
+  \\
+  & \mathrel{|} & halt
+\end{array}
+$$
+
+
+## Assignment: Atomic statements/expressions
+
+Atomic expressions are expressions which evaluation must terminate, never cause
+and exception or side effect.
+
+Atomic statements assign an atomic value to a variable, this involves evaluation
+of the statement/expression, calculating the frame address and updating the
+store.
+
+To evaluate an atomic expression, we use the atomic expression evaluator:
+
+$$
+\mathcal{A} : AtomicExp \times \mathit{FP} \times \mathit{Store}
+\rightharpoonup \mathit{Value}
+$$
+
+Then evaluation is simply knowing what the frame pointer offset is to do a
+lookup of the atomic value. Since we have encoded this with the name of the
+expression along with the frame pointer we have the frame address encoded into
+the store.
+{% codeblock aexp_eval.rkt lang:racket %}
+(define (eval e fp store)
+  (lookup store fp e))
+{% endcodeblock %}
+
+
+## Generalized Instruction
 
 Set Dalvik has 
 
