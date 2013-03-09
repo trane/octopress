@@ -3,7 +3,7 @@ layout: post
 title: "Concrete CESK for Dalvik"
 date: 2013-02-24 16:05
 comments: true
-categories: dalvik, cesk
+categories: dalvik, cesk, abstract interpretation
 tags: racket, dalivk
 ---
 
@@ -178,10 +178,25 @@ lookup of the atomic value. Since we have encoded this with the name of the
 expression along with the frame pointer we have the frame address encoded into
 the store.
 {% codeblock aexp_eval.rkt lang:racket %}
-(define (eval e fp store)
-  (lookup store fp e))
+(define (atomic-eval e fp store)
+  (match e
+    [(? atom?) e]
+    [(object ,classname ,op) (atomic-eval (lookup store fp (op classname)))]
+    [else (atomic-eval (lookup store fp e))]))
 {% endcodeblock %}
 
+## Continuations
+{% codeblock apply_kont.rkt lang:racket %}
+; Apply continuation
+(define (apply-kont kont value store)
+  (match kont
+    ; if this is the end, not sure what to return
+    ['(halt) '()]
+    ; otherwise, we need to get our new state
+    [`(,f ,stmts ,fp ,kaddr)
+      (let ([store* (extend* store fp (lookup store fp value))])
+          (state stmts store* fp kaddr))]))
+{% endcodeblock %}
 
 ## Generalized Instruction
 
