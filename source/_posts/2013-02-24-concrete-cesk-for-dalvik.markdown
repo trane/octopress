@@ -221,7 +221,7 @@ $$
 \end{array}
 $$
 
-We can define an `apply-kont` function to aid in the overall machine design,
+We can define an *applyKont* function to aid in the overall machine design,
 which will be utilized when we encounter returns and exceptions.
 
 $$
@@ -468,8 +468,26 @@ $$
 
 ## Invoking Methods
 
-Methods involve using all four components of the CESK machine: Control,
-Environment, Store, Continuation.
+Dalvik supports inheritance, due to a possible traversal of super classes,
+method invocation is necessarily the most complicated to model. Methods involve
+using all four components of the CESK machine: Control, Environment, Store,
+Continuation.
+
+It is useful to abstract away a simplified situation: assume that the method has
+already been looked up. Thus, we can define an *applyMethod* helper function to
+aid in applying the method to its arguments: $$applyMethod : Method \times Name
+\times Value \times AExp^{*} \times FP \times Store \times Kont \rightharpoonup
+\Sigma$$
+
+Further assume a method is defined as `m = def methodName(v_1, ... v_2) {body}`
+
+*applyMethod* needs to do the following
+
+* Lookup the values of the arguments
+* Bind those values to the formal parameters of the method
+* Create a new frame pointer
+* Create a new continuation
+
 
 ## Generalized Instruction
 
