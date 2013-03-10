@@ -32,7 +32,7 @@ Defining the state-space, $$\Sigma$$ as $$\sigma\in\Sigma = Stmt^*\times
 FP\times Store\times Kont$$, which allows us to encode a state as a simple
 struct:
 
-`(struct state {stmts fp store kont})`
+`(struct state {stmts fp stor kont})`
 
 
 ## C.ontrol: A sequence of statements
@@ -124,8 +124,15 @@ need four things:
 
 ; the partial state to state transition function
 (define (next state)
-  (match state
-    ...))
+  ; extract the state struct's contents
+  (let* ([stmts (state-stmts state)]
+         [fp (state-fp state)]
+         [σ (state-stor state)]
+         [κ (state-kont state)]
+         [current-stmt (first stmts)]
+         [next-stmt (rest stmts)])
+      (match current-stmt
+        ...)))
 
 ; lookup a frame-pointer in the store
 (define (lookup store fp val)
@@ -138,6 +145,53 @@ need four things:
         step
         (run step))))
 {% endcodeblock %}
+
+# Dalvik Byte-code Grammar
+
+For the purposes of this article, I will be using the core grammar defined by
+[Matt Might's Java CESK article][]. He defined this by looking at all of
+Dalvik's bytecode and ensuring that its semantics are represented in a
+straightforward way. He divided the language into two classes of terms:
+*statements* and *expressions*.
+
+<pre>
+program ::= class-def ...
+
+class-def ::= class class-name extends class-name
+              { field-def ... method-def ... }
+
+field-def ::= var field-name ;
+
+method-def ::= def method-name($name, ..., $name) { body }
+
+body ::= stmt ...
+
+stmt ::= label label:
+      |  skip ;
+      |  goto label ;
+      |  if aexp goto label ;
+      |  $name := aexp | cexp ;
+      |  return aexp ;
+      |  aexp.field-name := aexp ;
+      |  push-handler class-name label ;
+      |  pop-handler ;
+      |  throw aexp ;
+      |  move-exception $name ;
+
+cexp ::= new class-name
+      |  invoke aexp.method-name(aexp,...,aexp)
+      |  invoke super.method-name(aexp,...,aexp)
+
+aexp ::= this
+      |  true | false
+      |  null
+      |  void
+      |  $name
+      |  int
+      |  atomic-op(aexp, ..., aexp)
+      |  instanceof(aexp, class-name)
+      |  aexp.field-name
+</pre>
 
 # Transitions: Evaluation and stepping
 
@@ -182,7 +236,89 @@ the store.
   (match e
     [(? atom?) e]
     [(object ,classname ,op) (atomic-eval (lookup store fp (op classname)))]
-    [else (atomic-eval (lookup store fp e))]))
+    [else (lookup store fp e)]))
+
+; A helper function to define atomic values
+(define (atom? a)
+  (match
+    [(? void?) #t]
+    [(? null?) #t]
+    [(? boolean?) #t]
+    [(? number?) #t]
+    [else #f]))
+{% endcodeblock %}
+
+## nop, label, line
+
+There are thre types of statements that cause no change in state: `nop`,
+`label`, and `line`. We can define `nop` as: $$step(\mathbf{nop}: (\vec{s}, fp,
+\sigma, \kappa) \to (\vec{s}, fp, \sigma, \kappa)$$ This says that when we se
+a `nop`, get the next statement in the list of statements and run it.
+
+The only difference between `nop` and `label` is that `label` has an identifier
+(the label) with it $$step(\mathbf{label}\;\mathit{l}: (\vec{s}, fp, \sigma, \kappa))
+\to (\vec{s}, fp, \sigma, \kappa)$$
+
+`line` is defined the same as `label` and is a side-effect of the s-expression
+generation, not part of the actual grammar.
+
+Finally, we can add something to our transition function's `match` statement:
+
+{% codeblock next_noplabel.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      ['(nop) (state next-stmt fp σ κ)]
+      [`(line ,n) (state next-stmt fp σ κ)]
+      [`(label ,l) (state next-stmt fp σ κ)])))
+{% endcodeblock %}
+
+`goto` is much like `nop`, except that we must do a lookup using the `label` to
+find the next statement sequence. $$next(\mathbf{goto}\;\mathit{label} : \vec{s},
+fp, \sigma, \kappa) = (S(label), fp, \sigma, \kappa)$$
+
+{% codeblock next_noplabel.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(goto ,l) (state (lookup-label l) fp σ κ)]
+      ...
+{% endcodeblock %}
+
+## S function for Label Lookups
+Labels are identifiers for statements and used in jumping from one statement to
+another. We will need to store these labels for lookup later. So, let's define a
+label map and then a mechanism to lookup labels. We define this mapping function
+as $$\mathit{S} : \mathit{Label}\to \mathsf{Stmt*}$$
+
+In code, what we are trying to do is to find the label and execute the next
+statment, so we will need a label store, a way to update the store, and a way to
+lookup the next statement by the label
+
+{% codeblock label_stor.rkt lang:racket %}
+; global label store
+(define label-stor (make-hash))
+
+; update the label store
+(define (extend-label-stor label stmt)
+  (hash-set! label-stor label stmt))
+
+; lookup the statement from the label in the store
+(define (lookup-label label)
+  (hash-ref label-stor label))
+{% endcodeblock %}
+
+But, this means we also need to update the store when we see a label, so an
+update to the earlier match construct is in order:
+
+{% codeblock next_noplabel.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(label ,l)
+            (extend-label-stor l next-stmt)
+            (state next-stmt fp σ κ)]
+      ...
 {% endcodeblock %}
 
 ## Continuations
@@ -200,6 +336,7 @@ the store.
 
 ## Generalized Instruction
 
-Set Dalvik has 
+Set Dalvik has
 
 [Matthias Felleisen]: http://www.ccs.neu.edu/home/matthias/papers.html
+[Matt Might's Java CESK article]: http://matt.might.net/articles/oo-cesk/
