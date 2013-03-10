@@ -142,11 +142,6 @@ need four things:
 (define (extend σ fp var val)
   (hash-set! σ `(,fp ,var) val))
 
-; extend store with one or more values
-(define (extend* σ fps vars vals)
-  (map (λ (fp var val)
-            (extend σ fp var val)) fps vars vals))
-
 ; the algorithm for running the interpreter
 (define (run state)
   (let ([step (next state)])
@@ -479,14 +474,32 @@ aid in applying the method to its arguments: $$applyMethod : Method \times Name
 \times Value \times AExp^{*} \times FP \times Store \times Kont \rightharpoonup
 \Sigma$$
 
-Further assume a method is defined as `m = def methodName(v_1, ... v_2) {body}`
+Further assume a method is defined as `m = def methodName($v_1,...,$v_n) {body}`
 
-*applyMethod* needs to do the following
+*applyMethod* needs to do the following:
 
 * Lookup the values of the arguments
 * Bind those values to the formal parameters of the method
 * Create a new frame pointer
 * Create a new continuation
+
+$$
+applyMethod(m, name, val_{this}, \vec{e}, fp, σ, κ) = (body, fp', σ'', κ')) \\
+    fp' = \text{new} fp \\
+    σ' = σ[(fp, $this) \mapsto val_{this}] \\
+    σ'' = σ'[(fp', v_i) \mapsto \mathcal{A}(e_i, fp, σ)] \\
+    κ' = \mathbf{assign}(name, \vec{s}, fp, κ)
+$$
+
+{% codeblock apply_method.rkt lang:racket %}
+(define (apply/method m name val e_ fp σ κ)
+  (let ([σ_ (extend σ fp name val)]
+        [fp_ (gensym fp)]
+        [κ_ (apply/κ κ val σ)])
+    (match m
+      [`(def ,mname ,vars ,body)
+        (map (lambda (v e) (extend σ_ fp_ v (atomic-eval e fp σ))) vars e_)])))
+{% endcodeblock %}
 
 
 ## Generalized Instruction
