@@ -145,7 +145,7 @@ need four things:
 ; the algorithm for running the interpreter
 (define (run state)
   (let ([step (next state)])
-    (if (eq? 'halt (kont step))
+    (if (eq? 'halt (state-kont step))
         step
         (run step))))
 {% endcodeblock %}
@@ -278,7 +278,7 @@ the store.
 
 ; A helper to determine if these are plain values
 (define (atom? aexp)
-  (match
+  (match aexp
     [(? void?) #t]
     [(? null?) #t]
     [(? boolean?) #t]
@@ -312,8 +312,8 @@ going on here.
     (match current-stmt
       [`(,varname ,aexp)
             (let* ([val (atomic-eval aexp fp σ)]
-                   [σ_ (extend σ fp varname val)]
-                (state next-stmt fp σ_ κ)))]
+                   [σ_ (extend σ fp varname val)])
+                (state next-stmt fp σ_ κ))]
       ...
 {% endcodeblock %}
 
@@ -344,8 +344,8 @@ $$
     (match current-stmt
       [`(,varname new ,classname)
             (let* ([op_ `(object ,classname ,(gensym))]
-                   [σ_ (extend σ fp varname op_)]
-                (state next-stmt fp σ_ κ)))]
+                   [σ_ (extend σ fp varname op_)])
+                (state next-stmt fp σ_ κ))]
       ...
 {% endcodeblock %}
 
@@ -476,15 +476,18 @@ aid in applying the method to its arguments: $$applyMethod : Method \times Name
 
 Further assume a method is defined as `m = def methodName($v_1,...,$v_n) {body}`
 
+### applyMethod Helper
+
 *applyMethod* needs to do the following:
 
 * Lookup the values of the arguments
 * Bind those values to the formal parameters of the method
 * Create a new frame pointer
 * Create a new continuation
+* Ensure the next sequence of statements is included in the new continuation
 
 $$
-applyMethod(m, name, val_{this}, \vec{e}, fp, σ, κ) = (body, fp', σ'', κ')) \\
+applyMethod(m, name, val_{this}, \vec{e}, fp, σ, κ, \vec{s}) = (body, fp', σ'', κ')) \\
     fp' = \text{new} fp \\
     σ' = σ[(fp, $this) \mapsto val_{this}] \\
     σ'' = σ'[(fp', v_i) \mapsto \mathcal{A}(e_i, fp, σ)] \\
@@ -492,14 +495,92 @@ applyMethod(m, name, val_{this}, \vec{e}, fp, σ, κ) = (body, fp', σ'', κ')) 
 $$
 
 {% codeblock apply_method.rkt lang:racket %}
-(define (apply/method m name val e_ fp σ κ)
-  (let ([σ_ (extend σ fp name val)]
+(define (apply/method m name val exps fp σ κ)
+  (let ([σ_ (extend σ fp "$this" val)]
         [fp_ (gensym fp)]
-        [κ_ (apply/κ κ val σ)])
+        [κ_ `(,name ,(rest (lookup σ fp name)) ,fp ,κ)])
     (match m
       [`(def ,mname ,vars ,body)
-        (map (lambda (v e) (extend σ_ fp_ v (atomic-eval e fp σ))) vars e_)])))
+        (map (lambda (v e)
+               (extend σ_ fp_ v (atomic-eval e fp σ)))
+             vars exps)])
+    `(body ,fp_ ,σ_ ,κ_)))
 {% endcodeblock %}
+
+### Invoking a method
+
+With `apply/method` now doing much of the heavy lifting, invoking a method is
+reduced to a simple method lookup. *lookup* is a partial function that traverses
+through the inheritance chain until it finds the matching method. First, let's
+define *invoke*, we'll need the *methodName* for our *lookup* function.
+
+$$
+next($name := \mathbf{invoke}\;\mathit{e}\;\mathit{methodName}(e_1,...,e_n),fp,\sigma,\kappa) =
+\\
+applyMethod(m, name, val_{this},\langle e_1,...e_n\rangle,fp,\sigma,\kappa)
+$$
+
+In order to run the *applyMethod* function, we need a few variables defined:
+*val* and *m*. We can get *val* by a store lookup:
+
+$$
+val_{this} = \sigma(fp,\$this)
+$$
+
+Getting *m* is where we finally need to define *lookup* since it is what finds
+the correct method. We need two values to process our lookup: *className* and
+*methodName*. We already have *methodName* from our *invoke* function, and we
+can get our *className* by extracting it from *val*:
+
+$$
+(op,className) = val_{this}
+$$
+
+Now that we have both *className* and *methodName* we can define our partial
+function *lookup* that will traverse the class hierarchy to find the correct
+method to invoke:
+
+$$
+m = lookup(className, methodName)
+$$
+
+In code, this sequence of functions becomes:
+
+{% codeblock match_invoke.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(invoke ,e ,mname ,vars)
+            (let* ([val (lookup σ fp "$this")]
+                   [cname (match val
+                            [`(,op ,cname) cname])]
+                   [m '()]) ; implement later(lookup/method cname mname)])
+              (apply/method m cname val vars fp σ κ next-stmt))]
+      ...
+{% endcodeblock %}
+
+## Return Statement
+
+A *return* is an application of the current continuation to the return value. We
+already have the `apply/κ` function for application, so we just need to define
+*what* to pass in the *val* parameter. In the case of a return value, we need to
+evaluate the value to ensure we get the atomic instance:
+
+$$
+next(\mathbf{return}\; e,fp,\sigma,\kappa) = applyKont(\kappa, \mathcal{A}(e,
+fp, \sigma), \sigma)
+$$
+
+In code, this is simply:
+
+{% codeblock match_return.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(return ,e) (apply/κ κ (atomic-eval e fp σ) σ)]
+      ...
+{% endcodeblock %}
+
 
 
 ## Generalized Instruction
