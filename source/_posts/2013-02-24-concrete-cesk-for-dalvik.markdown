@@ -221,23 +221,34 @@ $$
 \end{array}
 $$
 
-We can define `apply-kont` function to aid in the overall machine
-design.
+We can define an `apply-kont` function to aid in the overall machine design,
+which will be utilized when we encounter returns and exceptions.
+
 $$
-apply-kont : Kont \times Value \times Store
+applyKont : Kont \times Value \times Store
 $$
 
+Then using applyKont with the assign and handle continuations is defined by:
+
+$$
+applyKont(\mathbf{assign}(name, \vec{s}, fp, \kappa), val, \sigma) =
+  (\vec{s}, fp, \sigma[(fp, name) \mapsto val], \kappa)
+  \\
+applyKont(\mathbf{handle}(className, label, \kappa), val, \sigma) =
+  applyKont(\kappa, val, \sigma)
+$$
+
+With this definition, we can translate this to code with `apply/κ`:
 
 {% codeblock apply_kont.rkt lang:racket %}
-; Apply continuation
-(define (apply-kont κ val σ)
+(define (apply/κ κ val σ)
   (match κ
     ; assignment continuation
     [`(,name ,next ,fp ,κ_)
         (let ([σ_ (extend σ fp name val)])
           (next fp σ_ κ_))]
     ; handle continuation
-    [`(,classname ,label ,κ_) (apply-kont κ_ val σ)]
+    [`(,classname ,label ,κ_) (apply/κ κ_ val σ)]
     ; the termination continuation
     ['(halt) ...]))
 {% endcodeblock %}
