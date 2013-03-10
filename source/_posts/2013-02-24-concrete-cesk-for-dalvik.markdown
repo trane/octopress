@@ -204,6 +204,8 @@ aexp ::= this
 
 # Transitions: Evaluation and stepping
 
+## Continuations
+
 Remembering from earilier in the article, there are three types of
 continutations: assignment, handler, and halt. Each of the components of a
 Dalvik program will use those generalized definitions.
@@ -219,6 +221,26 @@ $$
 \end{array}
 $$
 
+We can define `apply-kont` function to aid in the overall machine
+design.
+$$
+apply-kont : Kont \times Value \times Store
+$$
+
+
+{% codeblock apply_kont.rkt lang:racket %}
+; Apply continuation
+(define (apply-kont κ val σ)
+  (match κ
+    ; assignment continuation
+    [`(,name ,next ,fp ,κ_)
+        (let ([σ_ (extend σ fp name val)])
+          (next fp σ_ κ_))]
+    ; handle continuation
+    [`(,classname ,label ,κ_) (apply-kont κ_ val σ)]
+    ; the termination continuation
+    ['(halt) ...]))
+{% endcodeblock %}
 
 ## Assignment: Atomic statements/expressions
 
@@ -291,6 +313,39 @@ going on here.
 
 This creates a new state, where the store is now updated with a mapping of the
 variable `var` to the value `val`.
+
+## Object Assignment and Creation
+
+There is another type of assignment similar to the atomic assignment statement,
+a new object. This is when a variable is being assigned to a brand new object,
+e.g. `Object o = new Object()`. Consequently, the definition of object
+creation and assignment is similar to atomic assignments:
+
+$$
+next(varname := \mathbf{new} className : \vec{s}, fp, \sigma, \kappa) = (\vec{s}, fp, \sigma', \kappa)
+$$
+
+The $$\sigma'$$ is the store updated with the new object assignment variable and
+value mapping (corresponding to a never-before used object pointer *op'*):
+
+$$
+\sigma' = \sigma[(fp, varname) \mapsto (className, \sigma')]
+$$
+
+{% codeblock object_assignment.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(,varname new ,classname)
+            (let* ([op_ `(object ,classname ,(gensym))]
+                   [σ_ (extend σ fp varname op_)]
+                (state next-stmt fp σ_ κ)))]
+      ...
+{% endcodeblock %}
+
+This creates a new state, where the store is now updated with a mapping of the
+variable `varname` to the value `(object classname (gensym))`. The `(gensym)` is
+used to generate a *guaranteed-to-be-globally* unique value.
 
 ## nop, label, line
 
@@ -400,20 +455,10 @@ $$
       ...
 {% endcodeblock %}
 
+## Invoking Methods
 
-
-## Continuations
-{% codeblock apply_kont.rkt lang:racket %}
-; Apply continuation
-(define (apply-kont kont value store)
-  (match kont
-    ; if this is the end, not sure what to return
-    ['(halt) '()]
-    ; otherwise, we need to get our new state
-    [`(,f ,stmts ,fp ,kaddr)
-      (let ([store* (extend* store fp (lookup store fp value))])
-          (state stmts store* fp kaddr))]))
-{% endcodeblock %}
+Methods involve using all four components of the CESK machine: Control,
+Environment, Store, Continuation.
 
 ## Generalized Instruction
 
