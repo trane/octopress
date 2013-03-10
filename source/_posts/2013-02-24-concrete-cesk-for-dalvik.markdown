@@ -258,15 +258,6 @@ the store.
     [else #f]))
 {% endcodeblock %}
 
-### The Atomic Assignment Statement
-
-Like I said earlier, we need to evaluate the atomic expression and assign it a
-variable-value pair in the store. We can define this operation as:
-$$next(varnam := e : \vec{s}, fp, \sigma, \kappa) = (\vec{s}, fp, \sigma',
-\kappa)$$. The $$\sigma'$$ is the store updated with the new atomic assignment
-variable and value mapping: $$
-
-
 ## nop, label, line
 
 There are thre types of statements that cause no change in state: `nop`,
@@ -375,10 +366,39 @@ $$
       ...
 {% endcodeblock %}
 
-## Atomic 
+## The Atomic Assignment Statement
 
-Atomic expressions 
+Like I said earlier, we need to evaluate the atomic expression and assign it a
+variable-value pair in the store. We can define this operation as:
 
+$$
+next(varname := e : \vec{s}, fp, \sigma, \kappa) = (\vec{s}, fp, \sigma', \kappa)
+$$
+
+The $$\sigma'$$ is the store updated with the new atomic assignment
+variable and value mapping:
+
+$$
+\sigma' = \sigma[(fp, varname) \mapsto \mathcal{A}(e, fp, \sigma)]
+$$
+
+I have a couple of articles regarding [variable substitution][] and
+[implementation][] if you are interested in getting a larger view of what is
+going on here.
+
+{% codeblock atomic_assignment.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(,varname ,aexp)
+            (let* ([val (atomic-eval aexp fp σ)]
+                   [σ_ (extend σ fp varname val)]
+                (state next-stmt fp σ_ κ)))]
+      ...
+{% endcodeblock %}
+
+This creates a new state, where the store is now updated with a mapping of the
+variable `var` to the value `val`.
 
 
 ## Continuations
@@ -400,3 +420,5 @@ Set Dalvik has
 
 [Matthias Felleisen]: http://www.ccs.neu.edu/home/matthias/papers.html
 [Matt Might's Java CESK article]: http://matt.might.net/articles/oo-cesk/
+[implementation]: {% post_url 2012-02-15-on-our-way-to-reduction-implement-substitution.md %}
+[variable substitution]: {% post_url 2012-02-05-on-our-way-to-reduction-substitution.md %}
