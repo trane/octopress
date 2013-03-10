@@ -311,7 +311,7 @@ lookup the next statement by the label
 But, this means we also need to update the store when we see a label, so an
 update to the earlier match construct is in order:
 
-{% codeblock next_noplabel.rkt lang:racket %}
+{% codeblock label.rkt lang:racket %}
 (define (next state)
   ...
     (match current-stmt
@@ -320,6 +320,28 @@ update to the earlier match construct is in order:
             (state next-stmt fp σ κ)]
       ...
 {% endcodeblock %}
+
+## if-goto Statement
+The `if-goto` statement is similar to a jump, the only difference being that the
+conditional statement must be evaluated before you can determine which branch to
+execute. We will use the `atomic-eval` that was constructed earlier to determine
+the *truthiness* of the expression, then either issue a `goto` or just move to
+the next statement.
+
+{% codeblock ifgoto.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(if ,e goto ,l)
+        ;=>
+        (if (atomic-eval e fp σ)
+              (state (lookup-label l) fp σ κ)
+              (state next-stmt fp σ κ))]
+      ...
+{% endcodeblock %}
+
+
+
 
 ## Continuations
 {% codeblock apply_kont.rkt lang:racket %}
