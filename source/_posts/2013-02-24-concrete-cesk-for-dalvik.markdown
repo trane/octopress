@@ -242,21 +242,55 @@ lookup of the atomic value. Since we have encoded this with the name of the
 expression along with the frame pointer we have the frame address encoded into
 the store.
 {% codeblock aexp_eval.rkt lang:racket %}
-(define (atomic-eval e fp store)
-  (match e
-    [(? atom?) e]
-    [(object ,classname ,op) (atomic-eval (lookup store fp (op classname)))]
-    [else (lookup store fp e)]))
+; AExp X FP X Store -> Value
+(define (atomic-eval aexp fp σ)
+  (match aexp
+    [(? atom?) aexp]
+    [else (lookup σ fp aexp)]))
 
-; A helper function to define atomic values
-(define (atom? a)
+; A helper to determine if these are plain values
+(define (atom? aexp)
   (match
     [(? void?) #t]
     [(? null?) #t]
     [(? boolean?) #t]
-    [(? number?) #t]
+    [(? integer?) #t]
     [else #f]))
 {% endcodeblock %}
+
+### The Atomic Assignment Statement
+
+Like I said earlier, we need to evaluate the atomic expression and assign it a
+variable-value pair in the store. We can define this operation as:
+
+$$
+next(varname := e : \vec{s}, fp, \sigma, \kappa) = (\vec{s}, fp, \sigma', \kappa)
+$$
+
+The $$\sigma'$$ is the store updated with the new atomic assignment
+variable and value mapping:
+
+$$
+\sigma' = \sigma[(fp, varname) \mapsto \mathcal{A}(e, fp, \sigma)]
+$$
+
+I have a couple of articles regarding [variable substitution][] and
+[implementation][] if you are interested in getting a larger view of what is
+going on here.
+
+{% codeblock atomic_assignment.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(,varname ,aexp)
+            (let* ([val (atomic-eval aexp fp σ)]
+                   [σ_ (extend σ fp varname val)]
+                (state next-stmt fp σ_ κ)))]
+      ...
+{% endcodeblock %}
+
+This creates a new state, where the store is now updated with a mapping of the
+variable `var` to the value `val`.
 
 ## nop, label, line
 
@@ -272,7 +306,7 @@ The only difference between `nop` and `label` is that `label` has an identifier
 `line` is defined the same as `label` and is a side-effect of the s-expression
 generation, not part of the actual grammar.
 
-Finally, we can add something to our transition function's `match` statement:
+We can add a few new items to our transition function's `match` statement:
 
 {% codeblock next_noplabel.rkt lang:racket %}
 (define (next state)
@@ -366,39 +400,6 @@ $$
       ...
 {% endcodeblock %}
 
-## The Atomic Assignment Statement
-
-Like I said earlier, we need to evaluate the atomic expression and assign it a
-variable-value pair in the store. We can define this operation as:
-
-$$
-next(varname := e : \vec{s}, fp, \sigma, \kappa) = (\vec{s}, fp, \sigma', \kappa)
-$$
-
-The $$\sigma'$$ is the store updated with the new atomic assignment
-variable and value mapping:
-
-$$
-\sigma' = \sigma[(fp, varname) \mapsto \mathcal{A}(e, fp, \sigma)]
-$$
-
-I have a couple of articles regarding [variable substitution][] and
-[implementation][] if you are interested in getting a larger view of what is
-going on here.
-
-{% codeblock atomic_assignment.rkt lang:racket %}
-(define (next state)
-  ...
-    (match current-stmt
-      [`(,varname ,aexp)
-            (let* ([val (atomic-eval aexp fp σ)]
-                   [σ_ (extend σ fp varname val)]
-                (state next-stmt fp σ_ κ)))]
-      ...
-{% endcodeblock %}
-
-This creates a new state, where the store is now updated with a mapping of the
-variable `var` to the value `val`.
 
 
 ## Continuations
