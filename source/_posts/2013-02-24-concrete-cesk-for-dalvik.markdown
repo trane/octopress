@@ -489,7 +489,7 @@ Further assume a method is defined as `m = def methodName($v_1,...,$v_n) {body}`
 $$
 applyMethod(m, name, val_{this}, \vec{e}, fp, σ, κ, \vec{s}) = (body, fp', σ'', κ')) \\
     fp' = \text{new} fp \\
-    σ' = σ[(fp, $this) \mapsto val_{this}] \\
+    σ' = σ[(fp', $this) \mapsto val_{this}] \\
     σ'' = σ'[(fp', v_i) \mapsto \mathcal{A}(e_i, fp, σ)] \\
     κ' = \mathbf{assign}(name, \vec{s}, fp, κ)
 $$
@@ -581,7 +581,24 @@ In code, this is simply:
       ...
 {% endcodeblock %}
 
+## Exceptions
 
+Exceptions have several cases to implement: when a continuation is an exception
+handler, pushing and popping exception handlers, throwing and catching exception
+handlers, and capturing exceptions.
+
+### Exception Handler Continuation
+
+This is the simplest continuation to handle, we simply skip over the current
+continuation and we have already implemented it in the `apply/κ` function, so
+there is no need to do anything more.
+
+### Pushing and Popping Exception Handlers
+
+
+### Throwing and Catching Exception Handlers
+
+### Capturing Exceptions
 
 ## Generalized Instruction
 
