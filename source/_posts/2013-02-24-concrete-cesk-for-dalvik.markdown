@@ -134,9 +134,18 @@ need four things:
       (match current-stmt
         ...)))
 
-; lookup a frame-pointer in the store
-(define (lookup store fp val)
-  (hash-ref store `(,val ,fp)))
+; lookup the value of the framepointer, variable
+(define (lookup σ fp var)
+  (hash-ref σ `(,fp ,var)))
+
+; extend store with one value
+(define (extend σ fp var val)
+  (hash-set! σ `(,fp ,var) val))
+
+; extend store with one or more values
+(define (extend* σ fps vars vals)
+  (map (λ (fp var val)
+            (extend σ fp var val)) fps vars vals))
 
 ; the algorithm for running the interpreter
 (define (run state)
@@ -220,6 +229,7 @@ Atomic statements assign an atomic value to a variable, this involves evaluation
 of the statement/expression, calculating the frame address and updating the
 store.
 
+### The Atomic Expression Evaluator
 To evaluate an atomic expression, we use the atomic expression evaluator:
 
 $$
@@ -247,6 +257,15 @@ the store.
     [(? number?) #t]
     [else #f]))
 {% endcodeblock %}
+
+### The Atomic Assignment Statement
+
+Like I said earlier, we need to evaluate the atomic expression and assign it a
+variable-value pair in the store. We can define this operation as:
+$$next(varnam := e : \vec{s}, fp, \sigma, \kappa) = (\vec{s}, fp, \sigma',
+\kappa)$$. The $$\sigma'$$ is the store updated with the new atomic assignment
+variable and value mapping: $$
+
 
 ## nop, label, line
 
@@ -328,18 +347,37 @@ execute. We will use the `atomic-eval` that was constructed earlier to determine
 the *truthiness* of the expression, then either issue a `goto` or just move to
 the next statement.
 
+$$
+\mathit{next}(
+\mathbf{if}\;e\;\mathbf{goto}\;\mathit{label} : \vec{s},
+\mathit{fp},
+\sigma,
+\kappa
+) =
+\begin{cases}
+ (\mathcal{S}(\mathit{label}), \mathit{fp}, \sigma, \kappa) & \mathcal{A}(e, \mathit{fp}, \sigma) = \mathit{true} \\
+ (\vec{s}, \mathit{fp}, \sigma, \kappa) & \mathcal{A}(e, \mathit{fp}, \sigma) = \mathit{false}
+\end{cases}\\
+$$
+
 {% codeblock ifgoto.rkt lang:racket %}
 (define (next state)
   ...
     (match current-stmt
+      ; next(if e goto label) =
+      ;  if true then label
+      ;  else next-stmt
       [`(if ,e goto ,l)
-        ;=>
+        ; if true, goto label, otherwise next statment
         (if (atomic-eval e fp σ)
               (state (lookup-label l) fp σ κ)
               (state next-stmt fp σ κ))]
       ...
 {% endcodeblock %}
 
+## Atomic 
+
+Atomic expressions 
 
 
 
