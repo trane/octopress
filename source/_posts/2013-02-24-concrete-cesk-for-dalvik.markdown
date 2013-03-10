@@ -583,22 +583,134 @@ In code, this is simply:
 
 ## Exceptions
 
-Exceptions have several cases to implement: when a continuation is an exception
-handler, pushing and popping exception handlers, throwing and catching exception
+To handle exceptions we have several cases to implement: when a continuation is
+an exception handler, pushing and popping exception handlers, throwing exception
 handlers, and capturing exceptions.
 
 ### Exception Handler Continuation
 
 This is the simplest continuation to handle, we simply skip over the current
 continuation and we have already implemented it in the `apply/κ` function, so
-there is no need to do anything more.
+there is no need to do anything more. This would happen if the current
+continuation was an exception, but no exception was needed.
 
 ### Pushing and Popping Exception Handlers
 
+We will have two ways to put and get exception handlers, but pushing and popping
+from the program stack with a *pushhandler* and a *pophandler*:
 
-### Throwing and Catching Exception Handlers
+$$
+next(\mathbf{pushhandler}\;className\;label\; : \vec{s},fp,\sigma,\kappa) =\\
+(\vec{s}, fp, \sigma, \mathbf{handle(className, label, \kappa)}) \\
+next(\mathbf{pophandler}:\vec{s},fp,\sigma,\mathbf{handle}(className, label,
+\kappa)) = (\vec{s},fp,\sigma,\kappa) $$
+
+In code:
+{% codeblock match_pushpop.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(pushhandler ,name ,l)
+        `(,next-stmt ,fp ,σ ,(cons `(,name ,l ,κ) κ))]
+      [`(pophandler)
+        `(,next-stmt ,fp ,σ ,(car κ))]
+      ...
+{% endcodeblock %}
+
+### Throwing Exception Handlers
+
+In order to throw an exception, we must search the stack for a matching
+exception handler. Implementing a helper function *handle* to do this for us
+will help. First, let's define *helper* as:
+
+$$
+handle : Value \times FramePointer \times Store \times Kont \rightharpoonup
+\Sigma
+$$
+
+Here is how we will traverse the stack, putting last thrown exceptions into the
+register *"$ex"* as is protocol:
+
+If *className* is a subclass of *className'*:
+
+$$
+handle((op,className),fp,\sigma,\mathbf{handle}(className', label, \kappa)) =\\
+(\mathcal{S}(label), fp, \sigma[(fp,\$ex) \mapsto (op, className)], \kappa)
+$$
+
+If not:
+
+$$
+handle((op,className),fp,\sigma,\mathbf{handle}(className', label, \kappa)) =\\
+handle((op, className),fp,\sigma,\kappa)
+$$
+
+A *throw* skips over non-handler continuations:
+
+$$
+handle(val,fp,\sigma,\mathbf{assign}(name,\vec{s},fp',\kappa)) =
+handle(val,fp',\sigma,\kappa)
+$$
+
+*handle* in code looks like this:
+
+{% codeblock handle.rkt lang:racket %}
+(define (handle o fp σ ex)
+  (match `(,o ,ex)
+    [`((,op ,name) (,name_ ,l ,κ))  ; handler continuation
+      (if (isinstanceof name_ name)
+       `(,(lookup-label l) ,fp ,(extend σ fp "$ex" o) ,κ)
+       (handle o fp σ kont))]  ; non-handler continuation
+    [`(,val (,name ,s_ ,fp_ ,κ)) (handle val fp_ σ κ)]))
+{% endcodeblock %}
+
+With the *handle* helper function, we can now define the throw statement:
+
+$$
+next(\mathbf{throw}\;e\; :\;\vec{s},fp,\sigma,\kappa) =
+handle(\mathcal{A}(e,fp,\sigma),fp, \sigma, \kappa)
+$$
+
+Then we can add this to the transition function:
+{% codeblock match_throw.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(throw ,e) (handle (atomic-eval e fp σ) fp σ κ)]
+      ...
+{% endcodeblock %}
 
 ### Capturing Exceptions
+
+Since we store the last thrown exception into the *$ex* register, can be
+examined to determine which exception was caught. We then use this to go to the
+label that handles this execution branch.
+
+We can define this capturing with a *moveException* statement:
+
+$$
+next(\mathit{moveException}\;e : \vec{s}, fp, \sigma, \kappa) = (\vec{s}, fp, \sigma',
+\kappa)
+$$
+
+The store is updated by simply moving the exception *e* into the register
+*$ex*:
+
+$$
+\sigma' = \sigma[(fp, \$ex) \mapsto e]
+$$
+
+Putting this in our transition function, this is:
+
+{% codeblock match_exception.rkt lang:racket %}
+(define (next state)
+  ...
+    (match current-stmt
+      [`(move-exception ,e)
+          (let ([$ex (lookup σ fp "$ex")])
+            `(,next-stmt ,fp ,(extend σ fp $ex e)))]
+      ...
+{% endcodeblock %}
 
 ## Generalized Instruction
 
