@@ -3,6 +3,7 @@ layout: post
 title: "Concrete CESK for Android's Dalvik"
 date: 2013-03-11 16:05
 comments: true
+published: false
 categories: dalvik, cesk, android
 tags: racket, dalvik
 ---
@@ -838,16 +839,16 @@ $$
 In code:
 
 {% codeblock is_instance_of.rkt lang:racket %}
-(define isinstanceof super base
+(define (isinstanceof super base)
     (if (void? super)
         #f  ; reached the top class
         (if (equal? super base)
             #t
-            (let* [class (lookup/class base)]
-                  [upper (lookup/class super)])
+            (let* ([class (lookup/class base)]
+                   [upper (lookup/class super)])
               (if (equal? (class-super class) super)
                   #t
-                  (isinstanceof (upper-super upper) super)))))
+                  (isinstanceof (class-super upper) super))))))
 {% endcodeblock %}
 
 Since *super* is just a string, we need to only check string equality. By
@@ -855,6 +856,6 @@ definition, *super* is *void* if there is no higher class.
 
 [Matthias Felleisen]: http://www.ccs.neu.edu/home/matthias/papers.html
 [Matt Might's Java CESK article]: http://matt.might.net/articles/oo-cesk/
-[implementation]: {% post_url 2012-02-15-on-our-way-to-reduction-implement-substitution.md %}
-[variable substitution]: {% post_url 2012-02-05-on-our-way-to-reduction-substitution.md %}
+[implementation]: {% post_url 2012-02-15-on-our-way-to-reduction-implement-substitution %}
+[variable substitution]: {% post_url 2012-02-05-on-our-way-to-reduction-substitution %}
 [PyDA]: https://github.com/trane/PyDA
