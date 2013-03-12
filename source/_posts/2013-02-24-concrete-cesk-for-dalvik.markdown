@@ -1,14 +1,19 @@
 ---
 layout: post
-title: "Concrete CESK for Dalvik"
-date: 2013-02-24 16:05
+title: "Concrete CESK for Android's Dalvik"
+date: 2013-03-11 16:05
 comments: true
-categories: dalvik, cesk, abstract interpretation
-tags: racket, dalivk
+categories: dalvik, cesk, android
+tags: racket, dalvik
 ---
 
 
 # Introduction
+
+At the heart of all Android applications is Dalvik byte code. It's what
+everything gets compiled to and then run on the Dalvik VM. In order to do static
+program analysis for Android, you need to somehow interpret the byte code.
+That's where the CESK machine shines.
 
 The CESK machine, developed by [Matthias Felleisen][], provides a simple and
 powerful architecture used to model the semantics of functional, object-oriented
@@ -17,8 +22,9 @@ continuations, garbage collection and multi-threading. It is a state-machine
 that takes its name from the four components of each state: Control,
 Environment, Store, and Kontinuation.
 
-In this article, I detail the CESK machine and provide a partial implementation
-of an interpreter for Dalvik bytecode - the language of Android.
+In this article, I implement a concrete CESK machine to interpret a dynamically
+typed object-oriented language abstracted from Dalvik byte code. Every byte code
+and its semantics have been transformed into this language.
 
 # CESK
 
@@ -28,11 +34,19 @@ these machine states ($$\Sigma$$) that exist within the set of all machine
 states ($$\mathit{Prog}$$) with a partial transition function (`step`) from
 state to state ($$\Sigma \rightharpoonup \Sigma$$).
 
-Defining the state-space, $$\Sigma$$ as $$\sigma\in\Sigma = Stmt^*\times
+Defining the state-space, $$\Sigma$$ as $$\sigma\in\Sigma = Stmt^{*}\times
 FP\times Store\times Kont$$, which allows us to encode a state as a simple
 struct:
 
-`(struct state {stmts fp stor kont})`
+```(struct state {stmts fp stor kont})```
+
+If you are familiar with pushdown automata, then a CESK machine has many
+striking similarities. You can think of each state as the CES portion and the
+$$\Delta\kappa$$ would be what would be pushed/popped from the stack between
+state transitions. (For a project in my computational theory course some
+classmates and I implemented a Non-Deterministic Pushdown Automata in Python
+that outputs to a commandline and DOT format, feel free to play around with it:
+[PyDA][])
 
 
 ## C.ontrol: A sequence of statements
@@ -48,7 +62,7 @@ The Environment component of a CESK machine is a datastructure that maps
 variables with an address. In the Dalvik CESK machine, we use simple frame
 pointers as the addresses.
 
-$$\rho\in\mathit{Env} = \mathit{Var}\rightharpoonup\mathit{Address}$$
+$$fp = \rho\in\mathit{Env} = \mathit{Var}\rightharpoonup\mathit{Address}$$
 
 ### Addresses
 
@@ -92,7 +106,7 @@ Halt is handled as a termination continuation without context encoded into the
 component.
 
 In the case of exceptions, Dalvik defines a type of exception (class name), the
-branch label where execution should go and the next continuation.  $$
+branch label where execution should go and the next continuation. $$
 handle(className, label, \kappa) $$
 
 Any other type of invocation affecting the program stack is an assignment
@@ -154,7 +168,7 @@ need four things:
 
 For the purposes of this article, I will be using the core grammar defined by
 [Matt Might's Java CESK article][]. He defined this by looking at all of
-Dalvik's bytecode and ensuring that its semantics are represented in a
+Dalvik's byte code and ensuring that its semantics are represented in a
 straightforward way. He divided the language into two classes of terms:
 *statements* and *expressions*.
 
@@ -265,16 +279,28 @@ $$
 \rightharpoonup \mathit{Value}
 $$
 
-Then evaluation is simply knowing what the frame pointer offset is to do a
-lookup of the atomic value. Since we have encoded this with the name of the
-expression along with the frame pointer we have the frame address encoded into
-the store.
+We have some key types of atomic expressions and how they are evaluated.
+
+Atomic values that can be immediately returned such as integers, booleans, void,
+null.
+
+Register lookups simply involve knowing what the frame pointer offset is
+to do a lookup of the atomic value. Since we have encoded this with the name of
+the expression along with the frame pointer we have the frame address encoded
+into the store with `(fp, name)`. There are two special registers `"$this"` and
+`$ex`, but use the same semantics as other register lookups.
+
+Accessing an object field is similar to register lookups, you get the field
+offset from the object pointer with `(op, field)` from the store.
+
 {% codeblock aexp_eval.rkt lang:racket %}
 ; AExp X FP X Store -> Value
-(define (atomic-eval aexp fp σ)
+(define (eval/atomic aexp ptr σ)
   (match aexp
     [(? atom?) aexp]
-    [else (lookup σ fp aexp)]))
+    [`(object ,name ,field)
+        (lookup σ (lookup σ ptr name) field)]
+    [else (lookup σ ptr aexp)]))
 
 ; A helper to determine if these are plain values
 (define (atom? aexp)
@@ -495,10 +521,10 @@ applyMethod(m, name, val_{this}, \vec{e}, fp, σ, κ, \vec{s}) = (body, fp', σ'
 $$
 
 {% codeblock apply_method.rkt lang:racket %}
-(define (apply/method m name val exps fp σ κ)
-  (let ([σ_ (extend σ fp "$this" val)]
-        [fp_ (gensym fp)]
-        [κ_ `(,name ,(rest (lookup σ fp name)) ,fp ,κ)])
+(define (apply/method m name val exps fp σ κ s)
+  (let* ([fp_ (gensym fp)]
+         [σ_ (extend σ fp_ "$this" val)]
+         [κ_ `(,name ,s ,fp ,κ)])
     (match m
       [`(def ,mname ,vars ,body)
         (map (lambda (v e)
@@ -537,11 +563,11 @@ $$
 $$
 
 Now that we have both *className* and *methodName* we can define our partial
-function *lookup* that will traverse the class hierarchy to find the correct
+function *lookupMethod* that will traverse the class hierarchy to find the correct
 method to invoke:
 
 $$
-m = lookup(className, methodName)
+m = lookupMethod(className, methodName)
 $$
 
 In code, this sequence of functions becomes:
@@ -554,10 +580,13 @@ In code, this sequence of functions becomes:
             (let* ([val (lookup σ fp "$this")]
                    [cname (match val
                             [`(,op ,cname) cname])]
-                   [m '()]) ; implement later(lookup/method cname mname)])
+                   [m (lookup/method cname mname)])
               (apply/method m cname val vars fp σ κ next-stmt))]
       ...
 {% endcodeblock %}
+
+We can't implement `lookup/method` quite yet, however, since I still haven't
+defined and implemented classes. But, for now, let's move on.
 
 ## Return Statement
 
@@ -657,17 +686,22 @@ $$
 {% codeblock handle.rkt lang:racket %}
 (define (handle o fp σ ex)
   (match `(,o ,ex)
-    [`((,op ,name) (,name_ ,l ,κ))  ; handler continuation
-      (if (isinstanceof name_ name)
-       `(,(lookup-label l) ,fp ,(extend σ fp "$ex" o) ,κ)
-       (handle o fp σ kont))]  ; non-handler continuation
+    ; handler continuation
+    [`((,op ,name) (,name_ ,l ,κ))
+        (if (isinstanceof name_ name)
+            `(,(lookup-label l) ,fp ,(extend σ fp "$ex" o) ,κ)
+            (handle o fp σ κ))]
+    ; non-handler continuation
     [`(,val (,name ,s_ ,fp_ ,κ)) (handle val fp_ σ κ)]))
 {% endcodeblock %}
+
+You might have noticed a call to `isinstanceof`. I will define this function
+later when defining classes.
 
 With the *handle* helper function, we can now define the throw statement:
 
 $$
-next(\mathbf{throw}\;e\; :\;\vec{s},fp,\sigma,\kappa) =
+next(\mathbf{throw}\;e : \vec{s},fp,\sigma,\kappa) =
 handle(\mathcal{A}(e,fp,\sigma),fp, \sigma, \kappa)
 $$
 
@@ -682,7 +716,7 @@ Then we can add this to the transition function:
 
 ### Capturing Exceptions
 
-Since we store the last thrown exception into the *$ex* register, can be
+Since we store the last thrown exception into the *$ex* register, it can be
 examined to determine which exception was caught. We then use this to go to the
 label that handles this execution branch.
 
@@ -712,11 +746,115 @@ Putting this in our transition function, this is:
       ...
 {% endcodeblock %}
 
-## Generalized Instruction
+## Class Definitions
 
-Set Dalvik has
+With the calls to the unimplemented `lookup/method` and `isinstanceof`
+functions, it's time to implement them! But, first we need to define and
+implement classes.
+
+Classes are defined by their name, a potential super class, 0 or more fields
+(instance variables), and 0 or more methods.
+
+$$
+classDef : Name \times Super \times Fields \times Methods \\
+fieldDef : Name \\
+methodDef : Name \times Formals \times Body \\
+superDef : Name \times Void
+$$
+
+What we need is to be able to represent classes in a sane way that will allow us
+to keep track of super classes, fields, and methods. A *classDef* then, in code
+is: `(struct class {super fields methods})` where `super` is the name of the
+super class, `fields` is a list of field names, and `methods` is a mapping
+defined by:
+
+$$
+class.methodName \rightharpoonup methodDef
+$$
+
+Since methods also have multiple properties, we will also define a method as:
+`(struct method {formals body})`.
+
+We will also need a way to store and lookup classes. Since class names are
+unique, we can define a simple table of classes and a *lookupClass* method
+defined as:
+
+$$
+classTable = ClassName \rightharpoonup ClassDef \\
+class = lookupClass(className)
+$$
+
+Now in code, classes are:
+
+{% codeblock classes.rkt lang:racket %}
+(struct class {super fields methods})
+(struct method {formals body})
+
+(define class-table (make-hash))
+
+(define (lookup/class name)
+  (hash-ref class-table name))
+
+(define (extend-class-table name class)
+  (hash-set! class-table name class))
+{% endcodeblock %}
+
+### Method Lookup
+
+Now that we have defined classes, method lookup is a recursive function that
+traverses the classes hierarchy until it reaches a matching method, defined by
+
+$$
+m = lookup(className, methodName)
+$$
+
+In code:
+
+{% codeblock lookup_method.rkt lang:racket %}
+(define (lookup/method classname name)
+  (let* ([class (lookup/class classname)]
+         [methods (class-methods class)]
+         [super (class-super class)])
+    (if (hash-has-key? methods name)
+        (hash-ref methods name)
+        (if (void? (class-super class))
+            (lookup/method (class-super class) name)
+            (void)))))
+{% endcodeblock %}
+
+Since *super* is just a string, all we need to do is check for string equality.
+By definition, a class without a super class is *void*.
+
+### Is Instance Of
+
+Finding out if a class is an instance of another class is simple: find out if
+the class name is anywhere in its direct class hierarchy, returning true if it
+is and false otherwise:
+
+$$
+instance = isinstanceof(superClass, baseClass)
+$$
+
+In code:
+
+{% codeblock is_instance_of.rkt lang:racket %}
+(define isinstanceof super base
+    (if (void? super)
+        #f  ; reached the top class
+        (if (equal? super base)
+            #t
+            (let* [class (lookup/class base)]
+                  [upper (lookup/class super)])
+              (if (equal? (class-super class) super)
+                  #t
+                  (isinstanceof (upper-super upper) super)))))
+{% endcodeblock %}
+
+Since *super* is just a string, we need to only check string equality. By
+definition, *super* is *void* if there is no higher class.
 
 [Matthias Felleisen]: http://www.ccs.neu.edu/home/matthias/papers.html
 [Matt Might's Java CESK article]: http://matt.might.net/articles/oo-cesk/
 [implementation]: {% post_url 2012-02-15-on-our-way-to-reduction-implement-substitution.md %}
 [variable substitution]: {% post_url 2012-02-05-on-our-way-to-reduction-substitution.md %}
+[PyDA]: https://github.com/trane/PyDA
