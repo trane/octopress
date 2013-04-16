@@ -14,10 +14,71 @@ This is the crucial step: abstracting the concrete semantics away so that we can
 do control flow analysis (CFA). Fortunately, in small-step abstract
 interpretation, the concrete and abstract semantics are very similar.
 
-In this article, I show how to convert concrete semantics from the definition
-of my [Concrete CESK machine][] into abstract semantics.
+In this article, I introduce the concept and need for control flow analysis and
+show how to convert concrete semantics from the definition of my
+[Concrete CESK machine][] into abstract semantics in preparation for creating an
+Abstract CESK machine.
 
 <!-- more -->
+
+# Small-step Abstract Interpretation
+
+At the heart of analysis of higher-order languages (like Dalvik), is a
+recursive relationship between control-flow and value-flow: any attempt to
+tackle one necessarily means you must tackle the other. The class of algorithms
+that moves to solve this are Control-flow analyses - which specialize in solving
+the value-flow problem.
+
+Small-step abstract interpretation is one way to write a CFA.
+
+## Higher-order Control-flow problem
+
+The problem is simply stated as: the precise target of a function call may not
+be obvious. In languages Object-oriented like Java, Ruby, and Python, this
+problem is presented in the form of dynamically dispatched methods.
+
+{% codeblock lang:java %}
+object.method()
+{% endcodeblock %}
+
+In the above code, the target of the method call `.method()` depends on the value
+that flows to the statement `object`. In other words, the data-flow
+affecting the value of `object` creates a dependency with the control-flow
+of the method call.
+
+Furthermore, if `object` were a parameter to a method, the
+data-flow of the parameters of the method would be determined by the
+control-flow of the function.
+
+With a java-like pseudo-code example:
+
+{% codeblock %}
+class lambda(Object func) Inherits Object {
+    Object call(Object x) {
+        return this.func(x);
+    }
+}
+lambda(f).call(x)
+{% endcodeblock %}
+
+In the above example, the target of `func` depends on where the method flows.
+Further, it is not clear which method `func` may refer. So in control-flow
+analysis *where* the expression could be invoked must be considered along with
+what types of argument is might receive.
+
+## Higher-order Value-flow problem
+
+The consideration of which values might be produced by the expressions `func`
+and `x` is the value-flow problem. This is generally undecidable. Instead we
+must think of *all* possible values that a procedure could evaluate to - without
+knowing *exactly* which values those might be.
+
+This means that there is non-determinism in the evaluation of procedures and
+consequently leads to the inability of Concrete semantics to correctly model the
+flow of a program without having infinite amounts of memory at its disposal.
+
+Once we add non-determinism into the mix, we need to redefine the CESK machine
+from Concrete semantics to Abstract semantics.
 
 # Abstract vs Concrete
 

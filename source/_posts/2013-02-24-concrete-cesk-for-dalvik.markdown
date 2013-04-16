@@ -1,11 +1,11 @@
 ---
 layout: post
 title: "Concrete CESK for Android's Dalvik"
-date: 2013-03-11 16:05
+date: 2013-03-16 16:05
 comments: true
-published: false
-categories: dalvik, cesk, android
-tags: racket, dalvik
+published: true
+categories: [thesis, dalvik, cesk, android]
+tags: [racket, dalvik]
 ---
 
 
@@ -26,6 +26,8 @@ Environment, Store, and Kontinuation.
 In this article, I implement a concrete CESK machine to interpret a dynamically
 typed object-oriented language abstracted from Dalvik byte code. Every byte code
 and its semantics have been transformed into this language.
+
+<!-- more -->
 
 # CESK
 
