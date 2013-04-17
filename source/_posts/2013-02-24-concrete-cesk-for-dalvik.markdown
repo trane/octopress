@@ -136,16 +136,18 @@ need four things:
 (struct state {stmts fp store kont})
 
 ; create the initial machine state ς0
+(define empty-fp (gensym))
+(define empty-store (make-immutable-hash))
 (define (inject stmt)
   (state stmt empty-fp empty-store 'halt))
 
 ; the partial state to state transition function
-(define (next state)
+(define (next cur-state)
   ; extract the state struct's contents
-  (let* ([stmts (state-stmts state)]
-         [fp (state-fp state)]
-         [σ (state-stor state)]
-         [κ (state-kont state)]
+  (let* ([stmts (state-stmts cur-state)]
+         [fp (state-fp cur-state)]
+         [σ (state-stor cur-state)]
+         [κ (state-kont cur-state)]
          [current-stmt (first stmts)]
          [next-stmt (rest stmts)])
       (match current-stmt
@@ -157,14 +159,14 @@ need four things:
 
 ; extend store with one value
 (define (extend σ fp var val)
-  (hash-set! σ `(,fp ,var) val))
+  (hash-set σ `(,fp ,var) val))
 
 ; the algorithm for running the interpreter
 (define (run state)
-  (let ([step (next state)])
-    (if (eq? 'halt (state-kont step))
-        step
-        (run step))))
+  (if (state? state)
+    (let ([step (next state)])
+      (run step))
+    (printf "~s\n" state)))
 {% endcodeblock %}
 
 # Dalvik Byte-code Grammar
@@ -262,7 +264,7 @@ With this definition, we can translate this to code with `apply/κ`:
     ; handle continuation
     [`(,classname ,label ,κ_) (apply/κ κ_ val σ)]
     ; the termination continuation
-    ['(halt) ...]))
+    ['halt `(answer ,val)]))
 {% endcodeblock %}
 
 ## Assignment: Atomic statements/expressions
@@ -301,8 +303,8 @@ offset from the object pointer with `(op, field)` from the store.
 (define (eval/atomic aexp ptr σ)
   (match aexp
     [(? atom?) aexp]
-    [`(object ,name ,field)
-        (lookup σ (lookup σ ptr name) field)]
+    [`(,v ,op ,n)
+     (opify (eval/atomic v ptr σ) op (eval/atomic n ptr σ))]
     [else (lookup σ ptr aexp)]))
 
 ; A helper to determine if these are plain values
@@ -313,6 +315,14 @@ offset from the object pointer with `(op, field)` from the store.
     [(? boolean?) #t]
     [(? integer?) #t]
     [else #f]))
+
+; evaluate aexpr operations
+(define (opify lh op rh)
+  (match op
+    ...
+    ['!= (not (= lh rh))]
+    ['* (* lh rh)]
+    ['- (- lh rh)]))
 {% endcodeblock %}
 
 ### The Atomic Assignment Statement
@@ -339,7 +349,7 @@ going on here.
 (define (next state)
   ...
     (match current-stmt
-      [`(,varname ,aexp)
+      [`(,varname = ,aexp)
             (let* ([val (atomic-eval aexp fp σ)]
                    [σ_ (extend σ fp varname val)])
                 (state next-stmt fp σ_ κ))]
@@ -371,7 +381,7 @@ $$
 (define (next state)
   ...
     (match current-stmt
-      [`(,varname new ,classname)
+      [`(,varname = new ,classname)
             (let* ([op_ `(object ,classname ,(gensym))]
                    [σ_ (extend σ fp varname op_)])
                 (state next-stmt fp σ_ κ))]
@@ -528,12 +538,10 @@ $$
   (let* ([fp_ (gensym fp)]
          [σ_ (extend σ fp_ "$this" val)]
          [κ_ `(,name ,s ,fp ,κ)])
-    (match m
-      [`(def ,mname ,vars ,body)
-        (map (lambda (v e)
-               (extend σ_ fp_ v (atomic-eval e fp σ)))
-             vars exps)])
-    `(body ,fp_ ,σ_ ,κ_)))
+    (let ([σ* (car (map (lambda (v e)
+                     (extend σ_ fp_ v (eval/atomic e fp σ)))
+                   (method-formals m) exps))])
+      (state (method-body m) fp_ σ* κ_))))
 {% endcodeblock %}
 
 ### Invoking a method
@@ -579,12 +587,12 @@ In code, this sequence of functions becomes:
 (define (next state)
   ...
     (match current-stmt
-      [`(invoke ,e ,mname ,vars)
-            (let* ([val (lookup σ fp "$this")]
-                   [cname (match val
-                            [`(,op ,cname) cname])]
-                   [m (lookup/method cname mname)])
-              (apply/method m cname val vars fp σ κ next-stmt))]
+      [`(,name = invoke ,e ,mname ,vars)
+       (let* ([$val (lookup σ fp e)]
+              [cname (match $val
+                       [`(object ,cname ,fp) cname])]
+              [m (lookup/method cname mname)])
+         (apply/method m name $val vars fp σ κ next-stmt))]
       ...
 {% endcodeblock %}
 
