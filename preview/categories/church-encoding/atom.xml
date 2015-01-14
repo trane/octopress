@@ -1,0 +1,740 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: church encoding | $blog→errstr]]></title>
+  <link href="http://blog.errstr.com/categories/church-encoding/atom.xml" rel="self"/>
+  <link href="http://blog.errstr.com/"/>
+  <updated>2012-09-10T22:45:45-06:00</updated>
+  <id>http://blog.errstr.com/</id>
+  <author>
+    <name><![CDATA[Andrew Kuhnhausen]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Church Encoding: Converting to Primitives]]></title>
+    <link href="http://blog.errstr.com/2012/01/16/church-encoding-enriched-calculus/"/>
+    <updated>2012-01-16T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/01/16/church-encoding-enriched-calculus</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>So far, we have been able to build in
+<a href="{%%20post_url%202012-01-14-multi-arg-handling-with-currying%20%}">multi-argument
+handling</a>,
+<a href="{%%20post_url%202012-01-14-church-encoding%20%}">booleans, numerals, arithmetic</a>,
+<a href="{%%20post_url%202012-01-15-more-church-encoding%20%}">equality and lists</a>
+all while staying in the Pure λ-Calculus. However, it is convenient to introduce
+primitives like numbers and booleans when working on more complicated examples
+in order to remove some extra cognitive steps. As an examples, which takes fewer
+steps to recognize: <code>2</code> or the return value of <code>scc(scc(0))</code>?</p>
+
+<p>In this post, I describe the means of converting some of the strictly pure
+λ-calculus primitives to a more common numeric and boolean representations that
+Pierce calls λNB - which is his name for the <em>enriched</em> λ-calculus. I will also
+detail how to convert the other way from λNB→λ.</p>
+
+<h1>Boolean</h1>
+
+<p>As a reminder, the Church boolean <code>tru</code> and <code>fls</code> are defined:
+{% highlight text %}
+tru = λt. λf. t
+fls = λt. λf. f
+{% endhighlight %}</p>
+
+<h2>Church boolean → Boolean</h2>
+
+<p>To convert from λ→λNB we simply apply the λ-expression to <code>true</code> and <code>false</code>:
+{% highlight text %}
+realbool = λb. b true false
+{% endhighlight %}
+{% highlight python%}</p>
+
+<h1>realbool = λb. b true false</h1>
+
+<p>realbool = lambda b: (b)(True)(False)</p>
+
+<blockquote><blockquote><blockquote><p>realbool(tru)
+True
+realbool(fls)
+False
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<h2>Boolean → Church boolean</h2>
+
+<p>In the other direction, λNB→λ, we use an <code>if</code> expression:</p>
+
+<p>{% highlight text %}
+churchbool = λb. if b then tru else fls
+{% endhighlight %}
+{% highlight python%}</p>
+
+<h1>churchbool = λb. if b then tru else fls</h1>
+
+<p>churchbool = lambda b: (tru) if b else (fls)</p>
+
+<blockquote><blockquote><blockquote><p>realbool(churchbool(False))
+False
+realbool(churchbool(True))
+True
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<h1>Equality</h1>
+
+<p>Just like we were able to build higher level equality functions using Church
+booleans, we can do higher level conversions as well. As a reminder of the
+definition of equality:
+{% highlight text %}
+equal = λm. λn. and (iszro (m prd n))(iszro (n prd m))
+{% endhighlight %}</p>
+
+<h2>Church equality → Equality</h2>
+
+<p>{% highlight text %}
+realeq = λm. λn. (equal m n) true false
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>realeq = λm. λn. (equal m n) true false</h1>
+
+<p>realeq = lambda m: lambda n: (equal(m)(n))(True)(False)</p>
+
+<blockquote><blockquote><blockquote><p>realeq(c1)(c1)
+True
+realeq(c1)(c2)
+False
+{% endhighlight %}</p>
+
+<h2>Equality → Church equality</h2>
+
+<p>{% highlight text %}
+churcheq = λm. λn. if equal m n then tru else fls
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>churcheq = λm. λn. if equal m n then tru else fls</h1>
+
+<p>churcheq = lambda m: lambda n: (tru) if m == n else (fls)</p>
+
+<p>realbool(churcheq(3)(3))
+True
+realbool(churcheq(3)(2))
+False
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<h1>Numbers</h1>
+
+<p>I have already been converting Church numerals to numbers in my previous posts
+using the <code>(lambda n: n+1)(0)</code> function, here we will define it as a callable
+function. Church numerals are defined as:
+{% highlight text %}
+scc = λn. λs. λz. s (n s z)
+c0 = λs. λz. z
+c1 = scc c0
+c2 = scc c1
+c3 = scc c2
+{% endhighlight %}</p>
+
+<h2>Church numeral → Natural number</h2>
+
+<p>{% highlight text %}
+realnat = λm. m (λx. succ x) 0
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>realnat = λm. m (λn. succ n) 0</h1>
+
+<p>realnat = lambda m: (m)(lambda n: n + 1)(0)</p>
+
+<blockquote><blockquote><blockquote><p>realnat(c2)
+2
+realnat(times(c2)(c3))
+6
+{% endhighlight %}</p>
+
+<h2>Natural number → Church numeral</h2>
+
+<p>This is more complicated and possible conversions require methods that I have
+not covered yet. I will revisit this when I post about Recursion.</p></blockquote></blockquote></blockquote>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Church Encoding: (In)Equality and Lists]]></title>
+    <link href="http://blog.errstr.com/2012/01/15/more-church-encoding/"/>
+    <updated>2012-01-15T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/01/15/more-church-encoding</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>In my
+<a href="{%%20post_url%202012-01-14-church-encoding%20%}">previous post</a>
+about Church Encoding, I built up
+some booleans and their respective operators, numerals and several arithmetic
+operators. This post will focus on building two important constructs for any
+programming language: equality testing and lists. I will also
+continue my implementation with Python.</p>
+
+<h1>Testing For Zero</h1>
+
+<p>Determining if a Church numeral is zero is done by finding a pair of arguments
+that will return whether the numeral is zero or not (a True/False expression).
+We can use the <code>zz</code> and <code>ss</code> terms from the
+<a href="{%%20post_url%202012-01-14-church-encoding%20%}">subtraction</a>
+operation, by applying our numeral to the
+pair <code>ss</code> and <code>zz</code>. The trick is, if <code>ss</code> is applied at all to <code>zz</code> we know that
+the numeral is not zero and return <code>fls</code>, otherwise we return <code>tru</code>. This makes
+perfect sense, since the numeral will be applied the number of times equal to
+its value.</p>
+
+<p>In other words,
+if the Church numeral is <code>0</code>, then <code>ss</code> will be applied <code>0</code> times to <code>zz</code> and
+will return <code>tru</code>. Once <code>ss</code> is applied to <code>zz</code> (if the numeral is not <code>0</code>), it
+will return <code>fls</code> - not <code>0</code>.</p>
+
+<p>{% highlight text %}
+iszro = λm. m (λx. fls) tru
+{% endhighlight %}</p>
+
+<p>{% highlight python %}</p>
+
+<h1>iszro = λm. m (λx. fls) tru</h1>
+
+<p>iszro = lambda m: (m)(lambda x: fls)(tru)</p>
+
+<p>iszro(c1)(True)(False)
+False</p>
+
+<blockquote><blockquote><blockquote><p>iszro(c0)(True)(False)
+True
+iszro(sub(c3)(c3))(True)(False)
+True
+iszro(sub(c3)(c2))(True)(False)
+False
+iszro(times(c0)(c1))(True)(False)
+True
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<h1>Numeric Equality</h1>
+
+<p>There are probably many ways to define numeric equality, however, the trick I
+will use is that <code>m - n = 0</code> when <code>m = n</code>. So, testing for equality is as simple
+as applying <code>sub</code> then applying <code>iszro</code> to the result.</p>
+
+<p>{% highlight text %}
+equal = λm. λn. iszro (sub m n)
+{% endhighlight %}</p>
+
+<p>{% highlight python %}</p>
+
+<h1>equal = λm. λn. iszro (sub m n)</h1>
+
+<p>equal = lambda m: lambda n: iszro(sub(m)(n))</p>
+
+<blockquote><blockquote><blockquote><p>equal(c3)(c2)(True)(False)
+False
+equal(c3)(c1)(True)(False)
+False
+equal(c3)(c3)(True)(False)
+True
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p>There is are two big problems with this definition, however. First, each <code>sub</code>
+operation is <code>O(n)</code>, second the resulting Church numeral must be defined
+otherwise <code>iszro</code> will evaluate to <code>tru</code>.</p>
+
+<p>Pierce has a different definition of equal which has fewer evaluations than
+mine.
+{% highlight text %}
+equal = λm. λn. and (iszro (m prd n))(iszro (n prd m))
+{% endhighlight %}</p>
+
+<p>{% highlight python %}</p>
+
+<h1>equal = λm. λn. and (iszro (m prd n))(iszro (n prd m))</h1>
+
+<p>equal = lambda m: lambda n: And(iszro((m)(prd)(n)))(iszro((n)(prd)(m)))</p>
+
+<blockquote><blockquote><blockquote><p>equal(c2)(c3)(True)(False)
+False
+equal(c0)(c0)(True)(False)
+True
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p>His definition is both more efficient and works in cases that mine does not.
+Since my definition does left-to-right subtraction, negative Church numerals
+(which I haven't defined) evaluate to <code>tru</code>, since <code>sub(2)(3) = -1</code>.</p>
+
+<h2>Numeric Greater or Less Than</h2>
+
+<p>Since we can define <code>equal</code> it shouldn't be too hard to define greater and less
+than, and it turns out that it isn't.</p>
+
+<p>For strictly greater-than, we exploit the fact that <code>prd</code> will return 0 when
+<code>m &gt;= n</code>.  So, if <code>m &gt; 0</code> then it could be said that the following holds true:
+<code>m &gt;= n &amp;&amp; !(n &gt;= m)</code> which makes <code>m</code> strictly greater-than <code>n</code>.</p>
+
+<p>For strictly less-than, a simple trick of switching the order of arguments
+accomplishes the same thing: <code>n &gt;= m &amp;&amp; !(m &gt;= n)</code> which means that <code>m</code> must be
+strictly less than <code>n</code>.</p>
+
+<p>{% highlight text %}
+gt = λm. λn. and (iszro (m prd n))(not iszro(n prd m))
+lt = λm. λn. and (iszro (n prd m))(not iszro(m prd n))
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>gt = λm. λn. and (iszro (m prd n))(not iszro(n prd m))</h1>
+
+<p>gt = lambda m: lambda n: And(iszro((m)(prd)(n)))(Not(iszro((n)(prd)(m))))</p>
+
+<h1>lt = λm. λn. and (iszro (n prd m))(not iszro(m prd n))</h1>
+
+<p>lt = lambda m: lambda n: And(iszro((n)(prd)(m)))(Not(iszro((m)(prd)(n))))</p>
+
+<blockquote><blockquote><blockquote><p>gt(c0)(c3)(True)(False)
+False
+gt(c0)(c0)(True)(False)
+False
+gt(c3)(c2)(True)(False)
+True
+lt(c0)(c3)(True)(False)
+True
+lt(c0)(c0)(True)(False)
+False
+lt(c3)(c2)(True)(False)
+False
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p><em>Greater-than-or-equal</em> and <em>less-than-or-equal</em> can simply be calculated by
+concatenating <code>gt|equal</code> and <code>lt|equal</code>, which is trivial and I'll leave that up
+to the reader.</p>
+
+<h1>Lists</h1>
+
+<p>A list can be represented by a <code>reduce</code> or <code>fold</code> function in the λ-calculus. So
+the list <code>[x y z]</code> becomes a two-argument (<code>c n</code>) function that returns <code>c x (c
+y (c z n))</code>. There are several steps required to build lists detailed below.</p>
+
+<h2>Representing <code>nil</code></h2>
+
+<p><code>nil</code> can be represented by the same expression as <code>0</code> and <code>fls</code>, using the
+arguments <code>c n</code> we can define:
+{% highlight text %}
+nil = λc. λn. n
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>nil = λc. λn. n</h1>
+
+<p>nil = lambda c: lambda n: n
+{% endhighlight %}</p>
+
+<h2><code>cons</code> Function</h2>
+
+<p><code>cons</code> is a function that will take an argument <code>h</code> and a list <code>t</code> and returns a
+folded representation of <code>t</code> with <code>h</code> prepended.
+{% highlight text %}
+cons = λh. λt. λc. λn . c h (t c n)
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>cons = λh. λt. λc. λn . c h (t c n)</h1>
+
+<p>cons = lambda h: lambda t: lambda c: lambda n: ((c)(h))((t)(c)(n))
+{% endhighlight %}</p>
+
+<h2><code>isnil</code> Function</h2>
+
+<p>The <code>isnil</code> function will mimic the <code>iszero</code> function, since the definition of
+<code>nil</code> is the same as <code>0</code>. However, we are running it on a list, so there is a
+little more to is.
+{% highlight text %}
+isnil = λl. l (λh. λt. fls) tru
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>isnil = λl. l (λh. λt. fls) tru</h1>
+
+<p>isnil = lambda l: (l)(lambda h: lambda t: fls)(tru)</p>
+
+<blockquote><blockquote><blockquote><p>isnil(c1)(True)(False)
+False
+isnil(nil)(True)(False)
+True
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<h2><code>head</code> Function</h2>
+
+<p><code>head</code> is similar to <code>isnil</code>, except that we element at the beginning of the
+list instead of a Church boolean, otherwise <code>fls</code>.
+{% highlight text %}
+head = λl. l (λh. λt.  h) fls
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>head = λl. l (λh. λt.  h) fls</h1>
+
+<p>head = lambda l: (l)(lambda h: lambda t: h)(fls)
+{% endhighlight %}</p>
+
+<h2><code>tail</code> Function</h2>
+
+<p><code>tail</code> is much more difficult and employs a similar trick as the
+<a href="{%%20post_url%202012-01-14-church-encoding%20%}">pred function</a>
+did. I was unable to figure out <code>tail</code> without help from the book, so here is
+Pierce's solution:
+{% highlight text %}
+tail = λl.</p>
+
+<pre><code>     fst (l (λx. λp. pair (snd p)(cons x (snd p)))
+            (pair nil nil))
+</code></pre>
+
+<p>{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>tail = λl.</h1>
+
+<h1>fst (l (λx. λp. pair (snd p)(cons x (snd p)))</h1>
+
+<h1>(pair nil nil))</h1>
+
+<p>tail = lambda l: fst((l)(lambda x: lambda p: pair((snd(p))(cons(x)(snd(p))))(pair(nil)(nil))))
+{% endhighlight %}</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Church Encoding: Boolean, Numerals and Arithmetic]]></title>
+    <link href="http://blog.errstr.com/2012/01/14/church-encoding/"/>
+    <updated>2012-01-14T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/01/14/church-encoding</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>In my <a href="{%%20post_url%202012-01-14-multi-arg-handling-with-currying%20%}">previous post</a> about Currying, I mentioned that the λ-calculus has no
+primitive numbers or operation, just functions and more functions. In this post,
+I explore how, through simple constructs, Church was able to implement numbers,
+booleans, arithmetic operations and conditionals with examples in Python.</p>
+
+<p>Please see my <a href="{%%20post_url%202012-01-14-multi-arg-handling-with-currying%20%}">previous post</a> on Currying, as it is critical to understanding the
+material here.</p>
+
+<h1>Church Booleans</h1>
+
+<p>There is no such thing as a "true" or "false" in the λ-calculus. However, we can
+<em>represent</em> those boolean values by defining the λ terms <code>tru</code> and <code>fls</code>.</p>
+
+<p>{% highlight python %}</p>
+
+<h1>tru = λt.λf.t</h1>
+
+<p>tru = lambda t: lambda f: t</p>
+
+<h1>fls = λt.λf.f</h1>
+
+<p>fls = lambda t: lambda f: f
+{% endhighlight %}</p>
+
+<p>Those terms can be used to test if a value is <code>true</code> or <code>false</code> with a term
+<code>test b v w</code> which <em>reduces</em> to <code>v</code> if <code>b</code> is <code>tru</code> and <code>w</code> if <code>fls</code>.
+{% highlight python %}</p>
+
+<h1>test = λl.λm.λn. l m n</h1>
+
+<p>test = lambda l: lambda m: lambda n: (l)(m)(n)
+{% endhighlight %}
+To see how <code>test</code> reduces when called as <code>test tru v w</code>, we must first expand it
+and then we'll use call-by-value reduction</p>
+
+<pre><code>  test tru v w
+→ (λl.λm.λn. l m n) tru v w
+→ (λm.λn. tru m n)v w
+→ (λn. tru v n)w
+= tru v w
+→ (λt.λf.t)v w
+→ (λf.v)w
+= v
+</code></pre>
+
+<p>Making some test runs with our Python implementation:
+{% highlight python %}</p>
+
+<blockquote><blockquote><blockquote><p>test(tru)(True)(False)
+True
+test(fls)(True)(False)
+False
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<h2>Boolean Logical Operations</h2>
+
+<p>Since we now have the ability to represent boolean values, we can implement
+boolean algebra!</p>
+
+<p>Implementing a logical AND <code>and = λb.λc. b c fls</code>, we return <code>c</code> if <code>b</code> is <code>tru</code>
+or <code>fls</code> if <code>b</code> is <code>fls</code>. So if <code>b</code> is <code>tru</code> and <code>c</code> is <code>fls</code>, we return <code>c</code>
+(meaning <code>fls</code>), otherwise if <code>b</code> and <code>c</code> are <code>tru</code>, we return <code>tru</code>.
+{% highlight python %}</p>
+
+<h1>and = λb.λc. b c fls</h1>
+
+<p>And = lambda b: lambda c: (b)(c)(fls)</p>
+
+<blockquote><blockquote><blockquote><p>And(tru)(tru)(True)(False)
+True
+And(tru)(fls)(True)(False)
+False
+And(fls)(tru)(True)(False)
+False
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p>To implement OR: <code>or = λb.λc. b tru c</code>, meaning if <code>b</code> is <code>fls</code> return <code>c</code>, if <code>b</code>
+is <code>tru</code> return <code>tru</code>. This, of course, would not implement XOR, since in the
+event that <code>b</code> is <code>tru</code>, we automatically return <code>tru</code>.
+{% highlight python %}</p>
+
+<h1>or = λb.λc. b tru c</h1>
+
+<p>Or = lambda b: lambda c: (b)(tru)(c)</p>
+
+<blockquote><blockquote><blockquote><p>Or(fls)(fls)(True)(False)
+False
+Or(fls)(tru)(True)(False)
+True
+Or(tru)(tru)(True)(False)
+True
+Or(tru)(fls)(True)(False)
+True
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p>To implement NOT: <code>not = λb. b fls tru</code>, meaning return the opposite of <code>b</code>. We
+can apply to AND and OR operations along with boolean values.
+{% highlight python %}</p>
+
+<h1>not = λb. b fls tru</h1>
+
+<p>Not = lambda b: (b)(fls)(tru)</p>
+
+<blockquote><blockquote><blockquote><p>Not(tru)(True)(False)
+False
+Not(fls)(True)(False)
+True
+Not(And(tru)(tru))(True)(False)
+False
+Not(And(tru)(fls))(True)(False)
+True
+Not(Or(fls)(tru))(True)(False)
+False
+Not(Or(fls)(fls))(True)(False)
+True
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<h2>Pairs</h2>
+
+<p>Now that we have booleans, we can encode pairs of terms into one term, getting
+the first and second projections (<code>fst</code> and <code>snd</code>) when we apply the correct
+boolean value:</p>
+
+<pre><code>pair = λf.λs.λb. b f s
+fst = λp. p tru
+snd = λp. p fls
+</code></pre>
+
+<p>This means if we apply boolean value <code>b</code> to the function <code>pair v w</code>, it applies
+<code>b</code> to <code>v</code> and <code>w</code>. The application yields <code>v</code> if <code>b</code> is <code>tru</code> and <code>w</code>
+otherwise. Reducing the redex <code>fst(pair v w) →* v</code> goes as follows:</p>
+
+<pre><code>  fst(pair v w)
+= fst((λf.λs.λb. b f s)v w)
+→ fst((λs.λb. b v s)w)
+→ fst((λb. b v w))
+= (λp. p tru)(λb. b v w)
+→ (λb. b v w)tru
+→ tru v w
+= v
+</code></pre>
+
+<p>{% highlight python %}</p>
+
+<h1>pair = λf.λs.λb. b f s</h1>
+
+<p>pair = lambda f: lambda s: lambda b: (b)(f)(s)</p>
+
+<h1>fst = λp. p tru</h1>
+
+<p>fst = lambda p: (p)(tru)</p>
+
+<h1>snd = λp. p fls</h1>
+
+<p>snd = lambda p: (p)(fls)</p>
+
+<blockquote><blockquote><blockquote><p>fst(pair(tru)(fls))(True)(False)
+True
+fst(pair(tru)(tru))(True)(False)
+True
+fst(pair(fls)(tru))(True)(False)
+False
+fst(pair(fls)(fls))(True)(False)
+False
+snd(pair(fls)(fls))(True)(False)
+False
+snd(pair(fls)(tru))(True)(False)
+True
+snd(pair(tru)(fls))(True)(False)
+False
+snd(pair(tru)(tru))(True)(False)
+True
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<h1>Church Numerals</h1>
+
+<p>So far, we have been able to implement the basis of Boolean Algebra with <em>only</em>
+functions! Church uses a slightly more intricate representation of numbers by
+use of composite functions. Basically, to represent a natural number <code>n</code>, you
+simply encapsulate an argument <code>n</code> times with a successor function <code>scc</code>. You
+can think of <code>scc = n + 1</code>. To represent 0, Church used the same definition as
+<code>fls</code> (our False representation) - this should be familiar to most programmers
+as <code>0 == False</code> in many languages. So a break down of 0..Nth Church numeral is
+as such:</p>
+
+<pre><code>c0 = λs. λz. z
+c1 = λs. λz. s z
+c2 = λs. λz. s (s z)
+c3 = λs. λz. s (s (s z))
+... and so on
+</code></pre>
+
+<p>The <code>scc</code> combinator is defined as: <code>scc = λn. λs. λz. s (n s z)</code></p>
+
+<p>It works by combining a numeral <code>n</code> and returns another Church numeral. It does
+this by yielding a function that takes <code>s</code> and <code>z</code> as arguments and applies <code>s</code>
+repeatedly to <code>z</code>, specifically <code>n</code> times.</p>
+
+<p><em>Note:</em> For the example output below, the two arguments to each Church numeral
+are a lambda function that is equivalent to <code>scc</code> and the numeral <code>0</code>, since
+those are the parameters required for a Church numeral. It merely maps each
+function to the natural number value it represents. <code>c0-&gt;0, c1-&gt;1</code>.
+{% highlight python %}</p>
+
+<h1>scc = λn. λs. λz. s (n s z)</h1>
+
+<p>scc = lambda n: lambda s: lambda z: (s)((n)(s)(z))
+c0 = lambda s: lambda z: z
+c1 = scc(c0)
+c2 = scc(c1)
+c3 = scc(c2)</p>
+
+<blockquote><blockquote><blockquote><p>(c1)(lambda n: n+1)(0)
+1
+(c2)(lambda n: n+1)(0)
+2
+(c3)(lambda n: n+1)(0)
+3
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p><em>Addition</em> is essentially the <code>scc</code> combinator applied <code>m</code> times to a Church
+numeral <code>n</code>, where <code>n + m = v</code>. Equivalently, <code>scc</code> is merely <code>plus</code> applied
+once.</p>
+
+<pre><code>plus = λm. λn. λs. λz. m s (n s z)
+</code></pre>
+
+<p>{% highlight python %}</p>
+
+<h1>plus = λm. λn. λs. λz. m s (n s z)</h1>
+
+<p>plus = lambda m: lambda n: lambda s: lambda z: (m)(s)((n)(s)(z))</p>
+
+<blockquote><blockquote><blockquote><p>plus(c1)(c2)(lambda n: n+1)(0)
+3
+plus(c3)(c2)(lambda n: n+1)(0)
+5
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p><em>Multiplication</em> is the repeated application of <code>plus</code>, since <code>2+2+2 = 2*3</code>.</p>
+
+<pre><code>times = λm. λn. m (plus n) c0
+</code></pre>
+
+<p>{% highlight python %}
+times = lambda m: lambda n: (m)(plus(n))(c0)</p>
+
+<blockquote><blockquote><blockquote><p>times(c2)(c3)(lambda n: n+1)(0)
+6
+times(c3)(c3)(lambda n: n+1)(0)
+9
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p><em>Exponentiation</em> uses repeated multiplication to get the intended value since
+<code>2**3 = 2*2*2</code>.</p>
+
+<pre><code>exp = λm. λn. n (times m) c1
+</code></pre>
+
+<p>This translates to, <code>(m * 1)**n</code>.
+{% highlight python %}
+exp = lambda m: lambda n: (n)(times(m))(c1)</p>
+
+<blockquote><blockquote><blockquote><p>exp(c3)(c3)(lambda n: n+1)(0)
+27
+exp(c3)(c0)(lambda n: n+1)(0)
+1
+exp(c0)(c1)(lambda n: n+1)(0)
+0
+exp(c2)(c1)(lambda n: n+1)(0)
+2
+exp(c3)(c2)(lambda n: n+1)(0)
+9
+{%endhighlight %}</p></blockquote></blockquote></blockquote>
+
+<p><em>Subtraction</em> requires quite a bit more work to function, involving the
+predecessor combinator <code>prd</code>. First we must define two pairs <code>zz</code> (a starting
+value) and <code>ss</code> that takes two arguments <code>ci, cj</code> then yields <code>cj, cj+1</code>.
+Applying <code>ss</code>, <code>m</code>times to pair <code>c0,c0</code> yields <code>0,0</code> when <code>m</code> is 0, otherwise
+<code>cm-1, cm</code> when <code>m</code> is positive. The <code>pred</code> is always found in the first
+component of the pair.</p>
+
+<pre><code>zz = pair c0 c0
+ss = λp. pair (snd p) (plus c1 (snd p))
+prd = λm. fst (m ss zz)
+</code></pre>
+
+<p>{% highlight python %}</p>
+
+<h1>zz = pair c0 c0</h1>
+
+<p>zz = pair(c0)(c0)</p>
+
+<h1>ss = λp. pair (snd p) (plus c1 (snd p))</h1>
+
+<p>ss = lambda p: pair(snd(p))(plus(c1)(snd(p)))</p>
+
+<h1>prd = λm. fst (m ss zz)</h1>
+
+<p>prd = lambda m: fst((m)(ss)(zz))
+{% endhighlight %}</p>
+
+<p>Now that we have the <code>prd</code> combinator, we can define subtraction. Like addition,
+where we find a successor by iteratively adding 1 to 0, we can subtract by
+iteratively subtracting 1, n-times from <code>m</code>, where <code>m - n = v</code>.</p>
+
+<pre><code>sub = λm. λn. n prd m
+</code></pre>
+
+<p>{% highlight python %}</p>
+
+<h1>sub = λm. λn. n prd m</h1>
+
+<p>sub = lambda m: lambda n: (n)(prd)(m)</p>
+
+<blockquote><blockquote><blockquote><p>sub(c3)(c1)(lambda n: n+1)(0)
+2
+sub(c3)(c2)(lambda n: n+1)(0)
+1
+sub(c0)(c0)(lambda n: n+1)(0)
+0
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+]]></content>
+  </entry>
+  
+</feed>

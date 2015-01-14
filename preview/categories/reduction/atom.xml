@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: reduction | $blog→errstr]]></title>
+  <link href="http://blog.errstr.com/categories/reduction/atom.xml" rel="self"/>
+  <link href="http://blog.errstr.com/"/>
+  <updated>2012-09-10T22:45:45-06:00</updated>
+  <id>http://blog.errstr.com/</id>
+  <author>
+    <name><![CDATA[Andrew Kuhnhausen]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Reduction]]></title>
+    <link href="http://blog.errstr.com/2012/03/17/reduction/"/>
+    <updated>2012-03-17T00:00:00-06:00</updated>
+    <id>http://blog.errstr.com/2012/03/17/reduction</id>
+    <content type="html"><![CDATA[<h2>Introduction</h2>
+
+<p>Two of the most common forms of reduction are <em>Call-By-Name</em> (CBN) and
+<em>Call-By-Value</em> (CBV), with the latter being the most ubiquitous. In this post,
+I give implement both in <a href="http://racket-lang.org">Racket</a>.</p>
+
+<h2>Mathematical Definitions</h2>
+
+<h3>Non Deterministic Full ß-reduction</h3>
+
+<p>This is a <em>non-deterministic</em>, full ß-reduction definition. Notice that there is
+no <em>value</em> term definition, that is because a value cannot be a ß-redex. The way
+to read the following rules are, the definition on top of the line is the
+conditional, on the bottom is what happens if that is true.</p>
+
+<p>$$
+\frac{\text{if term is redex}}{\text{then reduce and substitute}}
+$$</p>
+
+<!--more-->
+
+
+<h3>Application</h3>
+
+<p>In application, there are two scenarios that need to be handled: the left hand
+and/or right hand terms are ß-redexes.</p>
+
+<p>$$
+\frac{t_1 \rightarrow t\prime_1}{t_1 t_2 \rightarrow t\prime_1 t_2}
+$$</p>
+
+<p>$$
+\frac{t_2 \rightarrow t\prime_2}{t_1 t_2 \rightarrow t_1 t\prime_2}
+$$</p>
+
+<h3>Abstraction</h3>
+
+<p>If the body of a λ-abstraction is a ß-redex, then reduce it and substitute.</p>
+
+<p>$$
+\frac{t_1 \rightarrow t\prime_1}{\lambda x.t_1 \rightarrow \lambda x.t\prime_1}
+$$</p>
+
+<h3>Application-Abstraction</h3>
+
+<p>If we have an abstraction and a term, substitute the term into the body of the
+abstraction if the <a href="{%%20post_url%202012-02-04-on-our-way-to-reduction-free-variables%20%}">free variables</a>
+in the body match the term.</p>
+
+<p>$$
+(\lambda x. t_{12} ) t_2 \rightarrow [x \rightarrow t_2] t_{12}
+$$</p>
+
+<h2>ß-reduction Implementation</h2>
+
+<h3>Substitution</h3>
+
+<p>You can see the
+<a href="{%%20post_url%202012-02-15-on-our-way-to-reduction-implement-substitution%20%}">implementation</a>
+and
+<a href="{%%20post_url%202012-02-05-on-our-way-to-reduction-substitution%20%}">theory</a>
+posts on substitution to get more background. Here is the implementation in
+Racket:</p>
+
+<p>{% highlight scheme %}
+(define (subst term var value)
+  (match term</p>
+
+<pre><code>; [x -&gt; s]y -&gt; y = x ? s : y
+[(? symbol?) (if (eq? term var) value term)]
+; [x -&gt; s]λx.b -&gt; λx.b
+; [x -&gt; s]λy.b -&gt; λy.[x -&gt; s]b
+[`(λ (,v) ,body) (if (eq? v var) term `(λ (,v) ,(subst body var value)))]
+; [x -&gt; s](t1 t2) -&gt; [x -&gt; s]t1 [x -&gt; s]t2
+[`(,f ,a) `(,(subst f var value) ,(subst a var value))]))
+</code></pre>
+
+<p>{% endhighlight %}</p>
+
+<h3>Beta-reduction</h3>
+
+<p>Beta-reduction is not <em>full</em> beta reduction. We only have one rule to implement,
+<em>abstraction</em></p>
+
+<p>{% highlight scheme %}
+; (t1 t2)
+(define (ß-reduce term)
+  (match term</p>
+
+<pre><code>  [`((λ (,v1) ,b1), (and rhs `(λ (,v2) ,b2))) (subst b1 v1 rhs)]))
+</code></pre>
+
+<p>{% endhighlight %}</p>
+
+<h3>Full ß-reduction</h3>
+
+<p>{% highlight scheme %}
+(define (full-ß-reduce term)
+  (match term</p>
+
+<pre><code>  ; value
+  [(? symbol?) (error "Cannot reduce value" term )]
+  ; identity
+  [`(λ (,v) ,v) (term)]
+  ; abstraction
+  [`((λ (,v1) ,b1)(λ (,v2) ,b2)) (ß-reduce term)]
+  ; application
+  [`((λ (,v1) ,b1), e) (full-ß-reduce e)]
+  ; application-abstraction
+  [`(,f ,e) (full-ß-reduce f)]))
+</code></pre>
+
+<p>{% endhighlight %}</p>
+
+<h2>Tests</h2>
+
+<h3>Beta-Reduce Tests</h3>
+
+<p>{% highlight text %}
+;(ß-reduce <code>((λ(x) (x x))(λ(z) u)))
+;'(((λ (z) u)) ((λ (z) u)))
+;(ß-reduce</code>((λ(x)(λ(y) (y x)))(λ(z)u)))
+;'(λ (y) (y ((λ (z) u))))
+{% endhighlight %}</p>
+
+<h3>Full ß-reduce Tests</h3>
+
+<p>{% highlight text %}
+;> (full-ß-reduce <code>((λ(y) (y a))((λ(x)x)(λ(z)((λ(u)u)z)))))
+;'((λ (z) ((λ (u) u) z)))
+;&gt; (full-ß-reduce</code>((λ(x)(x x))(λ(x)(x x))))
+;'(((λ (x) (x x))) ((λ (x) (x x))))
+{% endhighlight %}</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[On Our Way to Reduction: Substitution]]></title>
+    <link href="http://blog.errstr.com/2012/02/05/on-our-way-to-reduction-substitution/"/>
+    <updated>2012-02-05T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/02/05/on-our-way-to-reduction-substitution</id>
+    <content type="html"><![CDATA[<h2>Introduction</h2>
+
+<p>The ability to properly substitute is vital to reduction. In this post, I will
+show proper and improper definitions of substitution.</p>
+
+<h2>Semantics Primer</h2>
+
+<p>From my earlier post on
+<a href="{%%20post_url%202012-01-14-multi-arg-handling-with-currying%20%}">currying</a>
+you would have seen a substitution syntax like this, <code>(λx.t1)t2 ↦ [x ↦ t2]t1</code>
+where <code>[x ↦ t2]t1</code> means the term obtained by replacing all free occurrences of
+<code>x</code> in <code>t1</code> by <code>t2</code>. See my
+<a href="{%%20post_url%202012-02-04-on-our-way-to-reduction-free-variables%20%}">last post</a>
+for the definition of free variables.</p>
+
+<h2>Some Wrong Ways to Do It</h2>
+
+<p>The
+<a href="{%%20post_url%202012-02-04-on-our-way-to-reduction-free-variables%20%}">definition of the λ-calculus is
+simple</a>.
+We have a term broken into three additional parts: variable, abstraction, and
+application. To define substitution, we must define it for the each part of a
+term. For variables, it must be defined when there is a free variable and when
+there is not.</p>
+
+<h3>Naive Recursive Definition</h3>
+
+<p>{% highlight text %}</p>
+
+<h1>Replace all free occurrences of x in x with s</h1>
+
+<p>[x ↦ s]x        = s</p>
+
+<h1>Replace all free occurrences of x in y with s</h1>
+
+<p>[x ↦ s]y        = y     if x ≠ y</p>
+
+<h1>Replace all free occurrences of x in λy.t1 with s</h1>
+
+<p><a href="λy.t1">x ↦ s</a>  = λy.[x ↦ s]t1</p>
+
+<h1>Replace all free occurrences of x in t1 t2 with s</h1>
+
+<p><a href="t1%20t2">x ↦ s</a>  = ([x ↦ s]t1)([x ↦ s]t2)
+{% endhighlight %}
+The problem with the definition from above is that we are relying on the <em>name</em>
+of the variable or term to define substitution. This works fine if we are
+careful with our choice of bound variable names, however take the example <code>[x ↦
+y](λx.x)</code>. If we replace all free <code>x</code> terms within the abstraction <code>λx.x</code> with
+<code>y</code> we would end up with the following: <code>λx.y</code>, clearly this is <em>no longer</em> the
+identity function.</p>
+
+<p>What should be taken away from this? <em>The names of bound variables do not
+matter</em></p>
+
+<h3>Almost Fixed Definition</h3>
+
+<p>Let's ensure that names of bound variables don't matter.
+{% highlight text %}</p>
+
+<h1>Replace all free occurrences of x in x with s</h1>
+
+<p>[x ↦ s]x        = s</p>
+
+<h1>Replace all free occurrences of x in y with s</h1>
+
+<p>[x ↦ s]y        = y     if x ≠ y</p>
+
+<h1>Replace all free occurrences of x in λy.t1 with s</h1>
+
+<p><a href="λy.t1">x ↦ s</a>  = λy.t1         if y = x
+<a href="λy.t1">x ↦ s</a>  = λy.[x ↦ s]t1  if y ≠ x</p>
+
+<h1>Replace all free occurrences of x in t1 t2 with s</h1>
+
+<p><a href="t1%20t2">x ↦ s</a>  = ([x ↦ s]t1)([x ↦ s]t2)
+{% endhighlight %}</p>
+
+<p>So, in this case, <code>[x ↦ y](λx.x) = λy.y</code> which is indeed the identity function.
+However, this is still wrong. Take this example: <code>[x ↦ z](λz.x)</code>. Using the
+definition above, we would be substituting <code>z</code> for all free variables in
+<code>(λz.x)</code> which would leave us with <code>λz.z</code>, the identity function. But <code>λz.x</code> is
+<em>not</em> the identity function. So names are still an issue.</p>
+
+<h2>Variable Capture and Capture Avoidance</h2>
+
+<p>When a free variable in a term <code>s</code> is bound when <code>s</code> is substituted into a term
+<code>t</code> naively is called <em>variable capture</em>. We want to avoid this. We do this by
+using a substitution operation that avoids mixing bound variable names of <code>t</code>
+and free variable names of <code>s</code>. This is called <em>capture-avoiding substitution</em>
+and is often what is implicitly meant by the term <em>substitution</em>. It is easily
+achieved by one more condition on the abstraction case:
+{% highlight text %}</p>
+
+<h1>Replace all free occurrences of x in x with s</h1>
+
+<p>[x ↦ s]x        = s</p>
+
+<h1>Replace all free occurrences of x in y with s</h1>
+
+<p>[x ↦ s]y        = y     if x ≠ y</p>
+
+<h1>Replace all free occurrences of x in λy.t1 with s</h1>
+
+<p><a href="λy.t1">x ↦ s</a>  = λy.t1         if y = x
+<a href="λy.t1">x ↦ s</a>  = λy.[x ↦ s]t1  if y ≠ x and y ∉ FV(s)</p>
+
+<h1>Replace all free occurrences of x in t1 t2 with s</h1>
+
+<p><a href="t1%20t2">x ↦ s</a>  = ([x ↦ s]t1)([x ↦ s]t2)
+{% endhighlight %}</p>
+
+<p>This however, is not a complete definition, since it has now changed
+substitution into a <em>partial operation</em>. For example:
+<code>[x ↦ y z](λy.xy)</code> should equal <code>λy.yzy</code>, but because it does not appear free in
+<code>(y z)</code> it never hits one of our definitions.</p>
+
+<h2>A Convention: Alpha-Conversion</h2>
+
+<p>In order to fix the issue of bound and free variable names, we must decide to
+work with terms "up to renaming of bound variables" or what Church called
+<em>alpha-conversion</em>. This is the operation of consistently renaming a bound
+variable in a term. In other words, "Terms that differ only in the names of
+bound variables are interchangeable in all contexts".</p>
+
+<p>This actually simplifies our definition, since we can change names as soon as we
+get to a place where we are trying to apply the substitution to arguments where
+it is undefined. This means we can completely drop the first clause of the
+abstraction section.</p>
+
+<h2>Final Definition</h2>
+
+<p>{% highlight text %}</p>
+
+<h1>Replace all free occurrences of x in x with s</h1>
+
+<p>[x ↦ s]x        = s</p>
+
+<h1>Replace all free occurrences of x in y with s</h1>
+
+<p>[x ↦ s]y        = y     if x ≠ y</p>
+
+<h1>Replace all free occurrences of x in λy.t1 with s</h1>
+
+<p><a href="λy.t1">x ↦ s</a>  = λy.[x ↦ s]t1  if y ≠ x and y ∉ FV(s)</p>
+
+<h1>Replace all free occurrences of x in t1 t2 with s</h1>
+
+<p><a href="t1%20t2">x ↦ s</a>  = ([x ↦ s]t1)([x ↦ s]t2)
+{% endhighlight %}</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[On Our Way to Reduction: Free Variables]]></title>
+    <link href="http://blog.errstr.com/2012/02/04/on-our-way-to-reduction-free-variables/"/>
+    <updated>2012-02-04T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/02/04/on-our-way-to-reduction-free-variables</id>
+    <content type="html"><![CDATA[<h2>Introduction</h2>
+
+<p>The ability to reduce is one of the key components to the λ-calculus. However,
+you find it directly implemented in compiler optimizations for both functional
+and imperative languages and as inspiration in
+<a href="http://en.wikipedia.org/wiki/MapReduce">Google's MapReduce</a>.</p>
+
+<p>However, there are some subtleties that must be addressed to go from our λ
+and λNB calculi to being able to implement reduction. In this post, I
+mathematically prove that reduction on the λ-calculus terms can be done.</p>
+
+<h2>Define The λ-Calculus</h2>
+
+<p>As I described in my <a href="{%%20post_url%202012-01-10-the-lambda-calculus%20%}">initial post</a>
+about the λ-calculus, it is a <em>very</em> simple definition:
+{% highlight text %}
+t ::=           terms:</p>
+
+<pre><code>x         variable
+λx.t   abstraction
+t t    application
+</code></pre>
+
+<p>{% endhighlight %}</p>
+
+<h2>Definition of a Set of Free Variables and Size</h2>
+
+<p>Free variables are defined as:
+{% highlight text %}
+FV(x)       = {x}
+FV(λx.t1)   = FV(t1) \ {x}
+FV(t1 t2)   = FV(t1) ∪ FV(t2)
+{% endhighlight %}</p>
+
+<p>Size is defined as:
+{% highlight text %}
+size(true)                  = 1
+size(false)                 = 1
+size(0)                     = 1
+size(succ t1)               = size(t1) + 1
+size(pred t1)               = size(t1) + 1
+size(iszero t1)             = size(t1) + 1
+size(if t1 then t2 else t3) = size(t1) + size(t2) + size(t3) + 1
+{% endhighlight %}</p>
+
+<h2>Proof that |FV(t)| &#8804; size(t)</h2>
+
+<p>Unlike many statements in math, intuition and reality are in sync on this
+statement. Of course the statement <code>{ ∀ t, FV(t) ≤ size(t) }</code> is true. However,
+it is important to formally prove this, since this is key to reduction.</p>
+
+<p>By induction, by proving the following three cases, we can prove the statement
+to be true for all <code>t</code>:</p>
+
+<h3>Case 1:</h3>
+
+<p>{% highlight text %}
+t = x
+|FV(t)| = |{x}| = 1 = size(t)
+{% endhighlight %}</p>
+
+<h3>Case 2:</h3>
+
+<p>{% highlight text %}
+t = λx.t1
+Inductively:
+|FV(t1)| ≤ size(t1)
+So:
+|FV(t)| = |FV(t1) \ {x}| ≤ |FV(t1)| ≤ size(t1) &lt; size(t)
+{% endhighlight %}</p>
+
+<h3>Case 3:</h3>
+
+<p>{% highlight text %}
+t = t1 t2
+Inductively:
+|FV(t1)| ≤ size(t1) and |FV(t2)| ≤ size(t2)
+So:
+|FV(t)| = |FV(t1) ∪ FV(t2)| ≤ |FV(t1)| + |FV(t2)| ≤ size(t1) + size(t2) &lt; size(t)
+{% endhighlight %}</p>
+]]></content>
+  </entry>
+  
+</feed>

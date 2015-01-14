@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: static analysis | $blog→errstr]]></title>
+  <link href="http://blog.errstr.com/categories/static-analysis/atom.xml" rel="self"/>
+  <link href="http://blog.errstr.com/"/>
+  <updated>2012-09-10T22:45:45-06:00</updated>
+  <id>http://blog.errstr.com/</id>
+  <author>
+    <name><![CDATA[Andrew Kuhnhausen]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Safe Languages and Dynamic Checking]]></title>
+    <link href="http://blog.errstr.com/2011/12/30/types-and-programming-languages/"/>
+    <updated>2011-12-30T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2011/12/30/types-and-programming-languages</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>I recently cracked open Benjamin C. Pierce's <a href="http://www.amazon.com/gp/product/0262162091/ref=as_li_qf_sp_asin_tl?ie=UTF8&amp;tag=blogerrstrcom-20&amp;linkCode=as2&amp;camp=1789&amp;creative=9325&amp;creativeASIN=0262162091">Types and Programming
+Languages</a>
+in anticipation of the upcoming semester's research. I will often times skim
+through introductions, but decided to carefully analyze what I was reading this
+time - and I'm glad I did! For quite some time I've wondered what the purpose of
+such verbose type systems, like Java has, had any purpose beyond contributing to
+<del>carpal tunnel</del> a visual queue to the programmer. Coming into the
+programming world through Perl and Ruby, I
+learned how to infer what a variable does by the context of the statement and
+fail to see the benefit of having to explicitly state it. Compilers can do type
+inference, too, so what is the point of all the extra declarations?</p>
+
+<h1>Statically Checked ?= Safe Language</h1>
+
+<p>I have heard
+numerous explanations for why we must type <code>ArrayList array = new
+ArrayList()</code>, the most often cited is that it makes it a safe language.
+That, intuitively, is false. If that were the case, C++ would be a safe language
+but any language that allows you to write past the bounds of an array into some
+unknown block is categorically <em>unsafe</em>.</p>
+
+<p>Well, it turns out that I was almost right: verbose type declarations are often
+times there to <del>annoy</del> help the programmer, not the compiler. Explicit
+type declaration allows the language to be statically checked for sanity,
+however static type checking does not guarantee a safe language, nor does it
+guarantee run-time safety, e.g. array bounds checking is still done dynamically.</p>
+
+<p>There has been much work done in the area of static analysis for dynamically
+typed languages. In fact, much of the research <a href="http://matt.might.net">Matt
+Might</a> does is in this area of higher-order languages.</p>
+
+<h1>Dynamically Checked ?= !Safe Language</h1>
+
+<p>Scheme, Perl, Lisp, etc are all <em>safe</em> languages. In other words, it is
+"impossible to shoot yourself in the foot while programming" (Pierce)</p>
+
+<h1>What is a Safe Language?</h1>
+
+<p>According to Pierce, a safe language is one that "protects its own
+abstractions", his examples include accessing arrays by built in methods,
+lexically scoped variables only being accessible in that scope, and stacks that
+behave as stacks.</p>
+
+<p>Variable scope is an interesting attribute of a safe language, many languages
+handle this differently. Perl, for example, uses the <code>my</code> keyword to limit the
+scope of variables and enforces this when you explicitly declare <code>use strict</code>.
+Take the following useless bit of code:
+{% highlight perl %}
+sub fun {</p>
+
+<pre><code>my ($arrayref) = @_;
+my %hash;
+my $value = 0;
+for my $element (@$arrayref) {
+    my $thing = $element;
+    $hash{$element} = $thing;
+}
+# this should print 0..arrayref length
+print map { "$_\n" if $arrayref-&gt;[$_] == $hash{$_}} @$arrayref;
+
+print $thing # out-of-scope, error
+print $element # out-of-scope, error
+</code></pre>
+
+<p>}</p>
+
+<p>{% endhighlight %}
+However, this is completely different than scope in Javascript, since it has
+function-level scoping. <code>var</code> is the equivalent to Perl's <code>my</code> keyword, since
+all variables without a <code>var</code> are globally scoped.
+{% highlight javascript %}
+function fun(array) {</p>
+
+<pre><code>var hash = {},
+    value = 0;
+for (var i = 0, len = array.length; i &lt; len; i++) {
+    var thing = array[i];
+    hash[thing] = thing;
+}
+// this will never loop, since 'i' is scoped to the function 'fun' and not
+// the for loop
+for (; i &lt; len; i++) {
+    if (array[i] === hash[array[i]]) {
+        console.log(array[i]);
+    }
+}
+console.log(thing); // prints last element of array
+console.log(i, len); // prints the values of these
+</code></pre>
+
+<p>}
+{% endhighlight %}
+I would argue that while Javascript is a bit strange here with function-level
+scoping only, it passes the scoping test in Pierce's safe language definition,
+as well as passing the array-bounds checking test and a stack that acts like a
+stack. In fact, it is the safety of Javascript that allows tools like Mozilla's
+<a href="https://developer.mozilla.org/en/SpiderMonkey">Spider Monkey</a>, Google's
+<a href="http://code.google.com/p/v8/">V8</a> (which is what node.js runs on) to infer type
+information.</p>
+
+<h1>Do We Need Statically Typed Languages?</h1>
+
+<p>I don't know. It seems that much of the most recent languages are all
+dynamically typed. I will revisit this question at a later date, when I've made
+my way through more than just the first few chapters of this book. At the
+moment, it seems like an antiquated and restrictive way of analyzing programs.</p>
+]]></content>
+  </entry>
+  
+</feed>

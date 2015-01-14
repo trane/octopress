@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: recursion | $blog→errstr]]></title>
+  <link href="http://blog.errstr.com/categories/recursion/atom.xml" rel="self"/>
+  <link href="http://blog.errstr.com/"/>
+  <updated>2012-09-10T22:45:45-06:00</updated>
+  <id>http://blog.errstr.com/</id>
+  <author>
+    <name><![CDATA[Andrew Kuhnhausen]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Z-Combinator and Factorial in Perl]]></title>
+    <link href="http://blog.errstr.com/2012/01/23/church-encoding-recursion-perl/"/>
+    <updated>2012-01-23T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/01/23/church-encoding-recursion-perl</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>Since I just did an implementation of the
+<a href="{%%20post_url%202012-01-23-church-encoding-recursion%20%}">Z-combinator and Factorial in Python</a>,
+I figured it would be fun to implement in Perl, too. It's a lot uglier in Perl
+than Python, but Python is cheating with having a built-in <code>lambda</code> operator.</p>
+
+<h1>Implementation</h1>
+
+<p>{% highlight text %}
+Z = λf. (λx. f (λy. x x y))(λx. f (λy. x x y))
+g = λfct. λn. if realeq n c0 then c1 else (times n (fct (prd n))) ;
+factorial = Z g
+{% endhighlight %}
+{% highlight perl %}</p>
+
+<h1>!/usr/bin/env perl</h1>
+
+<p>use warnings;
+use strict;</p>
+
+<p>my $Z = sub {</p>
+
+<pre><code>my ($f) = @_;
+return (sub {
+    my ($x) = @_;
+    return $f-&gt;(sub {
+        my ($y) = @_;
+        return $x-&gt;($x)-&gt;($y);
+    });
+})-&gt;(sub {
+    my ($x) = @_;
+    return $f-&gt;(sub {
+        my ($y) = @_;
+        return $x-&gt;($x)-&gt;($y);
+    });
+})
+</code></pre>
+
+<p>};</p>
+
+<p>my $g = sub {</p>
+
+<pre><code>my ($fct) = @_;
+return sub {
+    my ($n) = @_;
+    return !$n ? 1 : $n * $fct-&gt;($n-1);
+};
+</code></pre>
+
+<p>};</p>
+
+<p>my $factorial = $Z->($g);</p>
+
+<p>print map { $factorial->($_)."\n" } @ARGV;
+{% endhighlight %}
+So what is the output?
+{% highlight text %}
+./thelambda.pl 3 5 100
+6
+120
+9.33262154439441e+157
+{% endhighlight %}</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Church Encoding: Recursion, Z-Combinator and Factorial]]></title>
+    <link href="http://blog.errstr.com/2012/01/23/church-encoding-recursion/"/>
+    <updated>2012-01-23T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/01/23/church-encoding-recursion</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>Now that I have the basis for an
+<a href="{%%20post_url%202012-01-16-church-encoding-enriched-calculus%20%}">enriched λ-calculus</a>
+, I can add a very important aspect to programming: <em>recursion</em>.</p>
+
+<h1>Recursion-making Combinators Primer</h1>
+
+<p>There are several ways to arrive at recursion, some include:
+* Directly with the <em>call-by-name</em> Y-combinator <code>Y = λf. (λx. f (x x))(λx. f (x x))</code>
+* Derive the Y-combinator by
+  <a href="http://matt.might.net/articles/implementation-of-recursive-fixed-point-y-combinator-in-javascript-for-memoization/">functionals</a> and the <a href="http://www.ucombinator.org">U-combinator</a>
+* Use the <em>call-by-value</em> Z-combinator: <code>Z = λf. (λx. f (λy. x x y))(λx. f (λy. x x y))</code></p>
+
+<p>In the case of a <em>call-by-value</em> language such as Python, it is useless to use
+the fixed-point Y-combinator since it diverges. For this post, I will be using
+the Z-combinator. Pierce does not go into the details of this intricate
+structure, instead opting for understanding through example.</p>
+
+<p>Here is my Python implementation of the Z-combinator:
+{% highlight text %}
+Z = λf. (λx. f (λy. x x y))(λx. f (λy. x x y))
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>Z = λf. (λx. f (λy. x x y))(λx. f (λy. x x y))</h1>
+
+<p>Z = lambda f: (lambda x: f(lambda y: (x)(x)(y)))(lambda x: f(lambda y: (x)(x)(y)))
+{% endhighlight %}</p>
+
+<h1>What The Fixed-Point Combinator Does</h1>
+
+<p>Let's take Pierce's example of <em>factorial</em> from earlier in his book:
+{% highlight text %}
+factorial = λn. if n=0 then 1 else n * factorial(n-1)
+{% endhighlight %}
+The use of a <em>fixed-point</em> combinator is to essentially unroll the recursive
+definition of <code>factorial</code> to where it occurs, where I would rewrite the above
+definition unrolled:
+{% highlight text %}
+if n=0 then 1
+else n* (if n-1=0 then 1)</p>
+
+<pre><code>else (n-1) * (if (n-2)=0 then 1)
+    else (n-2) *...))
+</code></pre>
+
+<p>{% endhighlight %}
+You could imagine this in Church's Pure λ-calculus:
+{% highlight text %}
+if realeq n c0 then c1
+else time n (if realeq (prd n) c0 then c1</p>
+
+<pre><code>else times (prd n)
+            (if realeq (prd (prd n)) c0 then c1
+             else times (prd (prd n)) ...)
+</code></pre>
+
+<p>{% endhighlight %}
+The same unrolling effect is achieved when using the Z-combinator by first
+defining the recursive function <code>g = λf.〈body containing f〉</code> then <code>h = Z g</code>.</p>
+
+<h1>Implementation</h1>
+
+<p>Now that I have the abstract idea of how to generate a recursive function using
+the fixed-point combinator (Z), I can implement the λ-calculus definition in
+Python for our enriched (λNB) and pure versions.
+{% highlight text %}
+g = λfct. λn. if realeq n c0 then c1 else (times n (fct (prd n))) ;
+factorial = Z g
+{% endhighlight %}
+{% highlight python %}</p>
+
+<h1>g = λfct. λn. if realeq n c0 then c1 else (times n (fct (prd n))) ;</h1>
+
+<p>g = lambda fct: lambda n: (c0) if realeq(n)(c0) else (times(n)(fct((prd)(n))))
+gNB = lambda fct: lambda n: 1 if n == 0 else (n * (fct(n-1)))</p>
+
+<h1>factorial = Z g</h1>
+
+<p>factorial = Z(g)
+factorialNB = Z(gNB)</p>
+
+<blockquote><blockquote><blockquote><p>factorialNB(3)
+6
+factorialNB(5)
+120
+factorialNB(100)
+93326215443944152681699238856266700490715968264381621468592963895217599993229915608941463976156518286253697920827223758251185210916864000000000000000000000000
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+]]></content>
+  </entry>
+  
+</feed>

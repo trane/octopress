@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: currying | $blog→errstr]]></title>
+  <link href="http://blog.errstr.com/categories/currying/atom.xml" rel="self"/>
+  <link href="http://blog.errstr.com/"/>
+  <updated>2012-09-10T22:45:45-06:00</updated>
+  <id>http://blog.errstr.com/</id>
+  <author>
+    <name><![CDATA[Andrew Kuhnhausen]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Multi-Argument Handling Through Currying]]></title>
+    <link href="http://blog.errstr.com/2012/01/14/multi-arg-handling-with-currying/"/>
+    <updated>2012-01-14T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/01/14/multi-arg-handling-with-currying</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>Since the λ-calculus does not have numbers or operators, only functions, it
+seems limited and useless, but with simple constructs one can create numbers,
+then build to operators, then data structure like lists. In fact, the λ-calculus
+is Turing Complete! The λ-calculus also lacks the built-in ability to handle
+multiple arguments, instead it employs Currying.</p>
+
+<p>In this post I implement a simple multi-argument function transformed into a
+curried form in Python, Javascript and Perl.</p>
+
+<h1>Primer on Multi-Argument Functions</h1>
+
+<p>We must understand
+that the λ-calculus has no built-in ability to handle multiple arguments for a
+function - or abstraction. Instead, we rely on a transformation of multiple
+arguments to higher-order functions called <em>currying</em> - named after
+Haskell Curry. The principle is straight-forward: "Suppose that <code>s</code> is a term
+involving two free variables <code>x</code> and <code>y</code> and that we want to write a function
+<code>f</code> that, for each pair <code>(v,w)</code> of arguments, yields the result of substituting
+<code>v</code> for <code>x</code> and <code>w</code> for <code>y</code> in <code>s</code>." (Pierce).</p>
+
+<p>So, as an example of what you would do in a rich programming language
+for a multiple argument function <code>f = λ(x,y).s</code>, where <code>v = 2x</code> and <code>w =
+3y</code>:</p>
+
+<h2>Rich Language Examples</h2>
+
+<p>Python:
+{% highlight python %}
+def f(x,y):</p>
+
+<pre><code>return 2*x + 3*y
+</code></pre>
+
+<p>{% endhighlight %}
+Javascript:
+{% highlight javascript %}
+var f = function(x,y) {</p>
+
+<pre><code>return 2*x + 3*y;
+</code></pre>
+
+<p>}
+{% endhighlight %}
+Perl:
+{% highlight perl %}
+sub f {</p>
+
+<pre><code>my (x,y) = @_;
+return 2*x + 3*y;
+</code></pre>
+
+<p>}
+{% endhighlight %}</p>
+
+<h2>Currying</h2>
+
+<p>In the λ-calculus, we employ currying where the expression <code>f = λ(x,y).s</code> is
+transformed into <code>f = λx.λy.s</code>. This simply means that <code>f</code> is a function that
+returns a function when given a value <code>v</code> for <code>x</code>, that returned function then
+returns the result when given a value <code>w</code> for <code>y</code>. In reducible expression form:
+<code>f v w</code> reduces to <code>((λy.[x → v]s)w)</code> once the value for <code>x</code> is passed, then is
+reduced to <code>[y → w][x → v]s</code>.</p>
+
+<p>In the following examples, I continue with <code>v = 2x</code> and <code>w = 3y</code>.</p>
+
+<h2>Curried Examples</h2>
+
+<p>Python (built-in lambda):
+{% highlight python %}
+(lambda x: (lambda y: 2<em>x + 3</em>y)(3))(2)</p>
+
+<blockquote><blockquote><blockquote><p>13
+{% endhighlight %}
+Javascript (anonymous functions):
+{% highlight javascript %}
+(function(x) {</p>
+
+<pre><code>return (function(y) {
+    return 2*x + 3*y;
+});
+</code></pre>
+
+<p>})(2)(3);
+13
+{% endhighlight %}
+Perl (anonymous subroutines):
+{% highlight perl %}
+sub {</p>
+
+<pre><code>my $x = shift;
+return sub {
+    return 2*x + 3*shift;
+};
+</code></pre>
+
+<p>}->(2)->(3);
+13
+{% endhighlight %}</p></blockquote></blockquote></blockquote>
+]]></content>
+  </entry>
+  
+</feed>

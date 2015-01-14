@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: substitution | $blog→errstr]]></title>
+  <link href="http://blog.errstr.com/categories/substitution/atom.xml" rel="self"/>
+  <link href="http://blog.errstr.com/"/>
+  <updated>2012-09-10T22:45:45-06:00</updated>
+  <id>http://blog.errstr.com/</id>
+  <author>
+    <name><![CDATA[Andrew Kuhnhausen]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[On Our Way to Reduction: Implement Substitution]]></title>
+    <link href="http://blog.errstr.com/2012/02/15/on-our-way-to-reduction-implement-substitution/"/>
+    <updated>2012-02-15T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2012/02/15/on-our-way-to-reduction-implement-substitution</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>Now that I have the
+<a href="{%%20post_url%202012-02-05-on-our-way-to-reduction-substitution%20%}">mathematical definition of
+substitution</a>,
+I can implement it. For ease of implementation, I will not consider <em>call by
+name</em> substitution which requires alpha-conversion. I will implement <em>call by
+value</em>, which is what most familiar programming languages use, such as Python,
+Ruby, PHP, C, Perl, and Java to name a few.</p>
+
+<h1>Substitution: Recursive Definition with Alpha Conversion</h1>
+
+<p>{% highlight text %}</p>
+
+<h1>Replace all free occurrences of x in x with s</h1>
+
+<p>[x ↦ s]x        = s</p>
+
+<h1>Replace all free occurrences of x in y with s</h1>
+
+<p>[x ↦ s]y        = y     if x ≠ y</p>
+
+<h1>Replace all free occurrences of x in λy.t1 with s</h1>
+
+<p><a href="λy.t1">x ↦ s</a>  = λy.[x ↦ s]t1  if y ≠ x and y ∉ FV(s)</p>
+
+<h1>Replace all free occurrences of x in t1 t2 with s</h1>
+
+<p><a href="t1%20t2">x ↦ s</a>  = ([x ↦ s]t1)([x ↦ s]t2)
+{% endhighlight %}</p>
+
+<h1>Strategy</h1>
+
+<p>I basically have four things to consider when substituting in <em>call by value</em>:
+* If the term is in the form <code>[x ↦ s]x</code>, return the <em>value</em> <code>s</code>
+* If the term is in the form <code>[x ↦ s]y</code>, return the <em>term</em> <code>y</code>, since <code>x ≠ y</code>
+* If the term is in the form <code>[x ↦ s](λy.t1)</code>, return the substituted <em>abstraction</em> <code>λy.[x ↦ s]t1</code>
+* If the term is in the form <code>[x ↦ s](t1 t2)</code>, return the application where each term is substituted <code>([x ↦ s]t1)([x ↦ s]t2)</code></p>
+
+<p>There are three parts to every substitution: term, variable, and value.
+So I will need them as parameters to my function; I'll call them <code>term var value</code>.
+In mathematical format, you can think of it like this: <code>[var ↦ value]term</code>.</p>
+
+<h1>Implementation in Racket</h1>
+
+<p>Using a functional language, like Racket, allows us a more powerful, terse, and
+elegant solution to the substitution function. I employ the use of Racket's
+<code>match</code> <a href="http://docs.racket-lang.org/reference/match.html">which gives extremely powerful pattern
+matching</a>.</p>
+
+<p>{% highlight text %}
+(define (subst term var value)
+  (match term</p>
+
+<pre><code>; [x -&gt; s]y -&gt; y = x ? s : y
+[(? symbol?) (if (eq? term var) value term)]
+; [x -&gt; s]λx.b -&gt; λx.b
+; [x -&gt; s]λy.b -&gt; λy.[x -&gt; s]b
+[`(λ (,v) ,body) (if (eq? v var) term `(λ (,v) ,(subst body var value)))]
+; [x -&gt; s](t1 t2)
+[`(,f ,a) `(,(subst f var value) ,(subst a var value))]))
+</code></pre>
+
+<p>{% endhighlight %}</p>
+
+<h1>Tests</h1>
+
+<p>{% highlight text %}</p>
+
+<blockquote><p>(subst `(λ (x) 'y) 'y '1)
+'(λ (x) (1))</p>
+
+<p>(subst <code>(λ (x) 'y) 'y</code>(λ (x) 'z))
+'(λ (x) ((λ (x) 'z)))</p>
+
+<p>(subst `((λ (x) y) (λ (y) z)) 'z '2)
+'((λ (y) 2))</p>
+
+<p>(subst `((λ (x) y) (λ (y) z)) 'y '2)
+'((λ (y) z))
+{% endhighlight %}</p></blockquote>
+]]></content>
+  </entry>
+  
+</feed>

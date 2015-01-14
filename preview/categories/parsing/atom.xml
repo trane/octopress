@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: parsing | $blog→errstr]]></title>
+  <link href="http://blog.errstr.com/categories/parsing/atom.xml" rel="self"/>
+  <link href="http://blog.errstr.com/"/>
+  <updated>2012-09-10T22:45:45-06:00</updated>
+  <id>http://blog.errstr.com/</id>
+  <author>
+    <name><![CDATA[Andrew Kuhnhausen]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Ambiguous Context-Free Grammars]]></title>
+    <link href="http://blog.errstr.com/2011/11/16/ambiguous-grammars/"/>
+    <updated>2011-11-16T00:00:00-07:00</updated>
+    <id>http://blog.errstr.com/2011/11/16/ambiguous-grammars</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>In this post, I am going to describe what makes a Context-Free Grammar (CFG)
+ambiguous. I'm doing this because I have a test tomorrow on Pushdown Automata
+(NPDA), CFG, Pumping Lemma, and (Non)?Deterministic Turing Machines - what
+better way to study than this?</p>
+
+<h1>Ambiguity</h1>
+
+<p>A grammar is considered ambiguous simple if it has more than one way that it can
+construct a parse tree for the same input. That's it! A simple example is in
+a CFG for this a math expression parser:
+{% highlight ruby %}</p>
+
+<h1>a+a*a</h1>
+
+<p>S -> S + S | S * S | (S) | a</p>
+
+<h1>or expanded</h1>
+
+<p>S -> S + S
+S -> S * S
+S -> (S)
+S -> a
+{% endhighlight %}
+So, why is this ambiguous? For most of us we immediately see that we should
+multiply first and then add, per the order-of-operations rule. However, when
+building parse trees off of that CFG, we can see that it can be made into two
+different trees:
+{% highlight ruby %}</p>
+
+<pre><code>S                S
+|                |
+</code></pre>
+
+<p>  S + S            S * S
+ /  |  \          /  |  \
+a   + S * S    S + S *   a</p>
+
+<pre><code>  | | |    | | |
+  a * a    a + a
+</code></pre>
+
+<p>{% endhighlight %}
+The key to remember is that we <em>know</em> that the multiplication should come first,
+so we should fix this.</p>
+
+<h1>Disambiguate</h1>
+
+<p>The part that makes this grammar split is that we are referencing addition,
+multiplication, and terminal <em>a</em> with the same Non-terminal <em>S</em>. There is no
+algorithm that can tell if a CFG is ambiguous, however there are some techniques
+for disambiguating:
+* Add non-terminals
+* Divide into: Expressions, Factors, Terms</p>
+
+<p>{% highlight ruby %}</p>
+
+<h1>a+a*a</h1>
+
+<p>S -> E
+E -> E + T | T # E is an expression
+T -> T * F | F # T is a term that disambiguates * and +
+F -> (E) | a   # F is a factor, isn't affected by * or +</p>
+
+<h1>compacted</h1>
+
+<p>S -> S + T | T
+T -> T * F | F
+F -> (S) | a</p>
+
+<h1>or expanded</h1>
+
+<p>S -> E
+E -> E + T
+E -> T
+T -> T * F
+T -> F
+F -> (E)
+F -> a
+{% endhighlight %}
+h
+This will ensure that we end up with a single parse tree for that string.
+{% highlight ruby %}</p>
+
+<pre><code>S
+|
+</code></pre>
+
+<p>  S + T
+ /  |  \
+T   + T * F
+|     | | |
+F     a * a
+|
+a
+{% endhighlight %}</p>
+
+<h1>Inherent Ambiguity</h1>
+
+<p>Inherently ambiguous Context-Free <em>Languages</em> are languages that have no
+unambiguous CFG. This is a tough one to determine because not only is there no
+algorithm to help, but you must prove that it is ambiguous <em>for all</em> grammars.
+Wikipedia has a <a href="http://en.wikipedia.org/wiki/Ambiguous_grammar#Inherently_ambiguous_languages">good
+example</a>
+of an inherently ambiguous language. Though, it is sort of cheating, since the
+language defined by the union of the two CFLs is <em>not</em> a CFL. I prefer the CFL:
+$$a<sup>ib<sup>jc<sup>k</sup></sup></sup> \vert i,j,k \ge 0 \land i = j \lor j = k$$</p>
+]]></content>
+  </entry>
+  
+</feed>

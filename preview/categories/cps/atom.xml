@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: cps | $blog→errstr]]></title>
+  <link href="http://blog.errstr.com/categories/cps/atom.xml" rel="self"/>
+  <link href="http://blog.errstr.com/"/>
+  <updated>2012-09-10T22:45:45-06:00</updated>
+  <id>http://blog.errstr.com/</id>
+  <author>
+    <name><![CDATA[Andrew Kuhnhausen]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Interpreter: CES Machine and CPS Style]]></title>
+    <link href="http://blog.errstr.com/2012/09/11/ces-machine/"/>
+    <updated>2012-09-11T19:04:00-06:00</updated>
+    <id>http://blog.errstr.com/2012/09/11/ces-machine</id>
+    <content type="html"><![CDATA[<h1>Introduction</h1>
+
+<p>There are many ways to implement an interpreter, like an Environment or
+Substitution based. Another style of interpreters can be derived
+from the simple and powerful <code>CESK machine</code>. By desugaring a language into its
+<code>A-Normal form</code>, you can make the CESK machine simpler, still.</p>
+
+<p>In this article, I expand upon the work from Matt Might's article, <code>Writing an
+interpreter, CESK-style</code>, by showing how you can turn a CESK machine into an
+even simpler CES machine by using <code>Continuation Passing Style</code>. This is directly
+from my final project for <code>Scripting Languages</code>.</p>
+
+<p>The working interpreter is provided and is written in Racket for an A-Normalized
+subset of Scheme (including <code>call-cc</code>).</p>
+
+<p>For a thorough overview of a <code>CESK-machine</code> and <code>A-Normal form</code>, please read
+Matt Might's article above.</p>
+
+<p>.. more</p>
+
+<h1>µScheme: The Grammar</h1>
+
+<p>.. code-block:: scheme</p>
+
+<pre><code>; *** Input language ***
+
+; &lt;prog&gt; ::= &lt;defs&gt; &lt;exp&gt;
+
+; &lt;defs&gt; ::= &lt;def&gt; &lt;defs&gt;
+;         |
+
+; &lt;def&gt; ::= (define (&lt;var&gt; &lt;formals&gt;) &lt;exp&gt;)
+
+; &lt;formals&gt; ::= &lt;var&gt; &lt;formals&gt;
+;            |
+
+; &lt;exp&gt; ::= &lt;integer&gt;
+;        |  &lt;var&gt;
+;        |  #t | #f
+;        |  (lambda (&lt;formals&gt;) &lt;exp&gt;)
+;        |  (let ([&lt;var&gt; &lt;exp&gt;] ...) &lt;exp&gt;)
+;        |  (if &lt;exp&gt; &lt;exp&gt; &lt;exp&gt;)
+;        |  (set! &lt;var&gt; &lt;exp&gt;)
+;        |  (begin &lt;exp&gt; ...)
+;        |  (&lt;prim&gt; &lt;exp&gt; ...)
+;        |  (&lt;exp&gt; &lt;exp&gt; ...)
+;        |  (call/cc &lt;exp&gt;)
+</code></pre>
+
+<h1>µScheme: A-Normalized Grammar</h1>
+
+<p>First, like in Matt's article, we'll want to put our grammar in A-Normalized
+form. We can do this by simply desugaring <code>let</code> and <code>begin</code>.</p>
+
+<p>.. code-block:: scheme</p>
+
+<pre><code>; *** Desugared language ***
+
+; &lt;prog&gt; ::= &lt;defs&gt; &lt;exp&gt;
+
+; &lt;defs&gt; ::= &lt;def&gt; &lt;defs&gt;
+;         |
+
+; &lt;def&gt; ::= (define (&lt;var&gt; &lt;formals&gt;) &lt;exp&gt;)
+
+; &lt;formals&gt; ::= &lt;var&gt; &lt;formals&gt;
+;            |
+
+; &lt;exp&gt; ::= &lt;integer&gt;
+;        |  &lt;var&gt;
+;        |  #t | #f
+;        |  (lambda (&lt;formals&gt;) &lt;exp&gt;)
+;        |  (if &lt;exp&gt; &lt;exp&gt; &lt;exp&gt;)
+;        |  (set! &lt;var&gt; &lt;exp&gt;)
+;        |  (call/cc &lt;exp&gt;)
+;        |  (&lt;exp&gt; &lt;exp&gt; ...)
+;        |  (&lt;prim&gt; &lt;exp&gt; ...)
+</code></pre>
+
+<h1>CESK to CES</h1>
+
+<p>To transform a grammar used by a CESK machine into one used by CES, there are a
+few transformations that need to occur. First, you need to put your language
+into A-Normal form.</p>
+
+<p>.. <em>Scripting Languages: http://matt.might.net/teaching/scripting-languages/spring-2012
+.. </em>Writing an interpreter, CESK-style: http://matt.might.net/articles/cesk-machines/
+.. <em>CESK machine: http://matt.might.net/articles/cesk-machines/
+.. </em>A-Normal form: http://matt.might.net/articles/a-normalization/
+.. _Continuation Passing Style: https://en.wikipedia.org/wiki/Continuation-passing_style</p>
+]]></content>
+  </entry>
+  
+</feed>
